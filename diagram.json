@@ -31,6 +31,13 @@
       "top": -111.6,
       "left": 245.4,
       "attrs": { "rows": "8", "cols": "8" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 32.75,
+      "left": -192,
+      "attrs": { "value": "1000" }
     }
   ],
   "connections": [
@@ -38,7 +45,9 @@
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
     [ "led1:C", "esp:GND.2", "green", [ "h0" ] ],
     [ "led1:A", "r1:2", "green", [ "h0" ] ],
-    [ "esp:2", "r1:1", "green", [ "h0" ] ]
+    [ "esp:2", "r1:1", "green", [ "h0" ] ],
+    [ "r2:2", "esp:VN", "green", [ "v0" ] ],
+    [ "r2:1", "esp:27", "green", [ "v0" ] ]
   ],
   "dependencies": {}
 }

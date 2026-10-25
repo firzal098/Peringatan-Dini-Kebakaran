@@ -14,16 +14,23 @@
       "type": "wokwi-led",
       "id": "led1",
       "top": -39.6,
-      "left": 237,
+      "left": 189,
       "rotate": 90,
       "attrs": { "color": "red" }
     },
     {
       "type": "wokwi-resistor",
       "id": "r1",
-      "top": 99.95,
+      "top": 157.55,
       "left": 134.4,
       "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led-matrix",
+      "id": "matrix1",
+      "top": -111.6,
+      "left": 245.4,
+      "attrs": { "rows": "8", "cols": "8" }
     }
   ],
   "connections": [

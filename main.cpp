@@ -105,9 +105,12 @@ void setup() {
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) connectWiFi();
-  if (!mqtt.connected()) connectMQTT();
-  mqtt.loop();
+  if (WiFi.status() != WL_CONNECTED) {
+    connectWiFi();
+  } else {
+    if (!mqtt.connected()) connectMQTT();
+    mqtt.loop();
+  }
 
   unsigned long now = millis();
 
@@ -137,20 +140,33 @@ void loop() {
 // ─────────────────────────────────────────────────────────────────────────────
 void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
-  Serial.printf("[WIFI] Menghubungkan ke '%s'", WIFI_SSID);
+
+  static unsigned long lastConnectAttempt = 0;
+  if (millis() - lastConnectAttempt < 8000 && lastConnectAttempt != 0) return;
+  lastConnectAttempt = millis();
+
+  Serial.printf("[WIFI] Menghubungkan ke '%s' (Channel 6)...", WIFI_SSID);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.disconnect();
+  delay(100);
+  WiFi.begin(WIFI_SSID, WIFI_PASS, 6);
+
   unsigned long t = millis();
-  while (WiFi.status() != WL_CONNECTED && millis()-t < 10000) {
-    delay(300); Serial.print('.');
+  while (WiFi.status() != WL_CONNECTED && millis() - t < 15000) {
+    delay(250);
+    Serial.print('.');
   }
-  if (WiFi.status() == WL_CONNECTED)
+
+  if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("\n[WIFI] Terhubung! IP: %s\n", WiFi.localIP().toString().c_str());
-  else
-    Serial.println(F("\n[WIFI] Gagal. Coba lagi nanti."));
+  } else {
+    Serial.println(F("\n[WIFI] Gagal. Coba lagi dalam 8 detik..."));
+  }
 }
 
 void connectMQTT() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
   static unsigned long lastTry = 0;
   if (millis() - lastTry < 5000) return;
   lastTry = millis();

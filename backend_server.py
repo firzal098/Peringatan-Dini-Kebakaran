@@ -36,8 +36,8 @@ except ImportError:
 MQTT_BROKER     = "broker.hivemq.com"
 MQTT_PORT       = 1883
 MQTT_CLIENT_ID  = f"local_vanguard_backend_{int(time.time())}"
-TOPIC_TELEMETRY = "forest/fire/telemetry"
-TOPIC_CONTROL   = "forest/fire/control"
+TOPIC_TELEMETRY = "testarossas_vanguard/fire/karhutla/telemetry"
+TOPIC_CONTROL   = "testarossas_vanguard/fire/karhutla/control"
 
 HTTP_HOST = "127.0.0.1"
 HTTP_PORT = 8000

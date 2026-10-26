@@ -30,8 +30,8 @@ const char* WIFI_PASS       = "";
 const char* MQTT_BROKER     = "broker.hivemq.com";
 const int   MQTT_PORT       = 1883;
 const char* DEVICE_ID       = "ESP32_FIRE_NODE_01";
-const char* TOPIC_TELEMETRY = "forest/fire/telemetry";
-const char* TOPIC_CONTROL   = "forest/fire/control";
+const char* TOPIC_TELEMETRY = "testarossas_vanguard/fire/karhutla/telemetry";
+const char* TOPIC_CONTROL   = "testarossas_vanguard/fire/karhutla/control";
 
 // ── TIMING ────────────────────────────────────────────────────────────────────
 const unsigned long SEND_INTERVAL     = 3000;

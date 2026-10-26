@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karhutla Monitoring • Vanguard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        canvas: '#0E1013',
+                        surface: '#15181C',
+                        'surface-subtle': '#1B1F24',
+                        'surface-card': '#1E2228',
+                        'surface-border': '#262B32',
+                        lime: {
+                            accent: '#D4FF32',
+                            dim: '#B6E025',
+                            glow: 'rgba(212, 255, 50, 0.25)',
+                        },
+                        violet: {
+                            accent: '#7B61FF',
+                            soft: '#9E8CFF',
+                            bg: 'rgba(123, 97, 255, 0.15)',
+                        },
+                        coral: {
+                            accent: '#FF7A45',
+                            soft: '#FFA375',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Canvas & Reset */
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: #0E1013;
+            color: #F3F4F6;
+            min-height: 100vh;
+        }
+
+        /* Bento Card Base */
+        .bento-card {
+            background: #171A1F;
+            border: 1px solid #232830;
+            border-radius: 24px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+        .bento-card:hover {
+            border-color: #2F3642;
+        }
+
+        /* Neon Lime Hero Card */
+        .bento-hero-lime {
+            background: #D4FF32;
+            color: #0B0E05;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 12px 36px -8px rgba(212, 255, 50, 0.35);
+        }
+
+        /* Radial Rings for Lime Card (matching reference) */
+        .bento-hero-lime::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: -15%;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 16px solid rgba(0, 0, 0, 0.05);
+            pointer-events: none;
+        }
+        .bento-hero-lime::after {
+            content: '';
+            position: absolute;
+            top: -35%;
+            left: -25%;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            border: 24px solid rgba(0, 0, 0, 0.03);
+            pointer-events: none;
+        }
+
+        /* Interactive Pill Buttons */
+        .nav-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #171A1F;
+            border: 1px solid #232830;
+            color: #9CA3AF;
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover {
+            color: #FFFFFF;
+            background: #1E2228;
+            border-color: #374151;
+        }
+        .nav-btn.active {
+            background: #D4FF32;
+            color: #0E1013;
+            border-color: #D4FF32;
+            box-shadow: 0 0 16px rgba(212, 255, 50, 0.35);
+        }
+
+        /* Quick Scenario Pill */
+        .scenario-pill {
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            background: #1E2228;
+            color: #9CA3AF;
+            border: 1px solid #282E37;
+            transition: all 0.2s ease;
+        }
+        .scenario-pill:hover {
+            color: #F3F4F6;
+            border-color: #3F4756;
+        }
+        .scenario-pill.active {
+            background: #272C34;
+            color: #FFFFFF;
+            border-color: #4B5563;
+        }
+
+        /* Status Dot Glow */
+        .status-dot-normal {
+            background-color: #D4FF32;
+            box-shadow: 0 0 14px #D4FF32;
+        }
+        .status-dot-warning {
+            background-color: #FBBF24;
+            box-shadow: 0 0 14px #FBBF24;
+        }
+        .status-dot-danger {
+            background-color: #EF4444;
+            box-shadow: 0 0 18px #EF4444;
+            animation: pulseAlert 0.8s infinite alternate;
+        }
+        @keyframes pulseAlert {
+            0% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1.25); opacity: 1; }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0E1013;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #242932;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #343B47;
+        }
+    </style>
+</head>
+<body class="p-3 sm:p-5 lg:p-7 flex items-center justify-center">
+
+    <!-- MAIN DASHBOARD WRAPPER (Neo-Bento Dark Shell) -->
+    <div class="w-full max-w-[1520px] bg-[#121418] rounded-[32px] border border-[#1E2228] p-4 sm:p-6 lg:p-7 flex flex-col gap-6 shadow-2xl">
+
+        <!-- ================= 1. TOP BAR ================= -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#1E232B]">
+            <!-- Brand & Node Status -->
+            <div class="flex items-center gap-3.5">
+                <!-- Lime Lightning / Flame Brand Mark -->
+                <div class="w-11 h-11 rounded-2xl bg-lime-accent flex items-center justify-center text-[#0E1013] font-black text-xl shadow-lg shadow-lime-glow">
+                    <i class="ph-bold ph-lightning"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-extrabold tracking-tight text-white">Karhutla Vanguard</h1>
+                        <span id="node-online-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-[#1B2215] text-lime-dim border border-lime-dim/20 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-lime-accent animate-pulse"></span>
+                            <span id="header-device-id">ESP32_FIRE_NODE_01</span>
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400">Peringatan Dini Kebakaran Gambut • Univ. Ahmad Dahlan</p>
+                </div>
+            </div>
+
+            <!-- Global Action Bar -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                <!-- Test Case Quick Switcher -->
+                <div class="flex items-center bg-[#171A1F] p-1 rounded-2xl border border-[#232830]">
+                    <button onclick="applyScenario('AUTO')" id="pill-AUTO" class="scenario-pill active text-xs">Auto Live</button>
+                    <button onclick="applyScenario('TC01')" id="pill-TC01" class="scenario-pill text-xs">TC-01</button>
+                    <button onclick="applyScenario('TC02')" id="pill-TC02" class="scenario-pill text-xs">TC-02</button>
+                    <button onclick="applyScenario('TC03')" id="pill-TC03" class="scenario-pill text-xs">TC-03</button>
+                </div>
+
+                <!-- API / JSON Modal Trigger -->
+                <button onclick="openApiModal()" class="scenario-pill flex items-center gap-1.5 text-xs">
+                    <i class="ph-bold ph-brackets-curly text-lime-accent"></i>
+                    <span>Payload</span>
+                </button>
+
+                <!-- GPIO Pinout Modal Trigger -->
+                <button onclick="openPinoutModal()" class="scenario-pill flex items-center gap-1.5 text-xs">
+                    <i class="ph-bold ph-cpu text-violet-soft"></i>
+                    <span>Pinout</span>
+                </button>
+
+                <!-- Audio Alarm Toggle -->
+                <button onclick="toggleAudioMute()" id="btn-audio" title="Mute/Unmute Alarm Suara" class="nav-btn">
+                    <i id="audio-icon" class="ph-fill ph-speaker-high text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- ================= 2. BENTO ROW 1: 4 TOP KPI CARDS ================= -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            <!-- Card 1 (HERO LIME): Evaluasi Status Utama -->
+            <div class="bento-hero-lime p-5 sm:p-6 flex flex-col justify-between min-h-[170px]">
+                <div class="flex items-center justify-between z-10">
+                    <div class="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-[#0B0E05]">
+                        <i id="hero-status-icon" class="ph-fill ph-shield-check text-2xl"></i>
+                    </div>
+                    <span id="hero-badge" class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-black/15 text-[#0B0E05] tracking-wide uppercase">
+                        NORMAL
+                    </span>
+                </div>
+
+                <div class="z-10 mt-4">
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-3xl sm:text-4xl font-extrabold tracking-tight" id="hero-status-title">NORMAL</span>
+                    </div>
+                    <p class="text-xs font-medium text-[#0B0E05]/85 mt-1 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-[#0B0E05] inline-block"></span>
+                        <span id="hero-status-subtitle">Kondisi hutan &amp; lahan terkendali</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Card 2: Suhu Udara (DHT22) -->
+            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-400">Suhu Udara (DHT22)</span>
+                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-lime-accent">
+                        <i class="ph-bold ph-thermometer text-base"></i>
+                    </div>
+                </div>
+
+                <div class="my-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="val-temp" class="text-3xl font-extrabold font-mono text-white">25.4</span>
+                        <span class="text-sm font-semibold text-gray-400">°C</span>
+                    </div>
+                    <p id="label-temp-state" class="text-xs text-gray-400 mt-1">Normal (&lt;30°C)</p>
+                </div>
+
+                <!-- Mini Bar Sparkline -->
+                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
+                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
+                        <div id="bar-temp" class="bg-lime-accent h-full rounded-full transition-all duration-300" style="width: 45%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Kelembapan Tanah Gambut (Kapasitif) -->
+            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-400">Kadar Air Gambut (Soil)</span>
+                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-violet-soft">
+                        <i class="ph-bold ph-drop text-base"></i>
+                    </div>
+                </div>
+
+                <div class="my-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="val-soil" class="text-3xl font-extrabold font-mono text-white">62.0</span>
+                        <span class="text-sm font-semibold text-gray-400">%</span>
+                    </div>
+                    <p id="label-soil-state" class="text-xs text-gray-400 mt-1">Lembap Aman (&gt;35%)</p>
+                </div>
+
+                <!-- Mini Bar Sparkline -->
+                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
+                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
+                        <div id="bar-soil" class="bg-violet-accent h-full rounded-full transition-all duration-300" style="width: 62%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: MQ-2 Asap & Gas Smoldering -->
+            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-400">Gas &amp; Asap (MQ-2)</span>
+                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-coral-accent">
+                        <i class="ph-bold ph-wind text-base"></i>
+                    </div>
+                </div>
+
+                <div class="my-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="val-smoke" class="text-3xl font-extrabold font-mono text-white">45</span>
+                        <span class="text-sm font-semibold text-gray-400">PPM</span>
+                    </div>
+                    <p id="label-smoke-state" class="text-xs text-gray-400 mt-1">Bebas Emisi (&lt;95 PPM)</p>
+                </div>
+
+                <!-- Mini Bar Sparkline -->
+                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
+                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
+                        <div id="bar-smoke" class="bg-coral-accent h-full rounded-full transition-all duration-300" style="width: 15%;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 3. BENTO ROW 2: TELEMETRY STREAM & HARDWARE ACTUATORS ================= -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+            <!-- Chart Stream: Real-Time Multivariate (Cols 8) -->
+            <div class="lg:col-span-8 bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Tren Telemetri Real-Time</h2>
+                        <p class="text-xs text-gray-400">Pemantauan simultan suhu udara, kelembapan tanah, dan gas MQ-2</p>
+                    </div>
+
+                    <!-- Clean Series Legend -->
+                    <div class="flex items-center gap-3 text-xs font-medium">
+                        <div class="flex items-center gap-1.5 text-lime-dim">
+                            <span class="w-2.5 h-2.5 rounded-full bg-lime-accent"></span>
+                            <span>Suhu (°C)</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-violet-soft">
+                            <span class="w-2.5 h-2.5 rounded-full bg-violet-accent"></span>
+                            <span>Gambut (%)</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-coral-soft">
+                            <span class="w-2.5 h-2.5 rounded-full bg-coral-accent"></span>
+                            <span>Asap (PPM/5)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas Height 220px Clean -->
+                <div class="w-full h-[220px]">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Hardware & Actuator State (Cols 4) -->
+            <div class="lg:col-span-4 bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Aktuator Lokal</h2>
+                        <p class="text-xs text-gray-400">Status Pin GPIO ESP32 DevKit V1</p>
+                    </div>
+                    <button onclick="testBuzzerBeep()" class="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#20252C] hover:bg-[#282F38] text-gray-300 border border-[#2B323D] transition flex items-center gap-1">
+                        <i class="ph-bold ph-bell-ringing"></i>
+                        <span>Tes Alarm</span>
+                    </button>
+                </div>
+
+                <!-- 4 Actuator Indicators -->
+                <div class="grid grid-cols-2 gap-3 my-3">
+                    <!-- LED Hijau (GPIO 18) -->
+                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
+                        <div id="led-green-dot" class="w-4 h-4 rounded-full status-dot-normal transition-all"></div>
+                        <div>
+                            <span class="text-xs font-bold text-white block">LED Hijau</span>
+                            <span class="text-[10px] font-mono text-gray-400">GPIO 18 • Normal</span>
+                        </div>
+                    </div>
+
+                    <!-- LED Kuning (GPIO 19) -->
+                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
+                        <div id="led-yellow-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all"></div>
+                        <div>
+                            <span class="text-xs font-bold text-white block">LED Kuning</span>
+                            <span class="text-[10px] font-mono text-gray-400">GPIO 19 • Warning</span>
+                        </div>
+                    </div>
+
+                    <!-- LED Merah (GPIO 21) -->
+                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
+                        <div id="led-red-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all"></div>
+                        <div>
+                            <span class="text-xs font-bold text-white block">LED Merah</span>
+                            <span class="text-[10px] font-mono text-gray-400">GPIO 21 • Danger</span>
+                        </div>
+                    </div>
+
+                    <!-- Buzzer (GPIO 22) -->
+                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
+                        <div id="buzzer-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all flex items-center justify-center"></div>
+                        <div>
+                            <span class="text-xs font-bold text-white block">Buzzer</span>
+                            <span class="text-[10px] font-mono text-gray-400">GPIO 22 • Sirene</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actuator Summary Message -->
+                <div class="p-3 rounded-2xl bg-[#13161A] border border-[#20252D] flex items-center justify-between text-xs">
+                    <span class="text-gray-400">Status Aktuator:</span>
+                    <span id="actuator-summary-label" class="font-semibold text-lime-dim flex items-center gap-1.5">
+                        <i class="ph-fill ph-check-circle"></i>
+                        Siaga Normal
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 4. BENTO ROW 3: DONUT RISK INDEX & CSV EXPORT ================= -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+            <!-- Donut Chart: Komposisi Skor Risiko (Cols 6) -->
+            <div class="lg:col-span-6 bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Indeks Risiko Kebakaran</h2>
+                        <p class="text-xs text-gray-400">Formula multivariat berbobot (Temp 35%, Soil 25%, Smoke 40%)</p>
+                    </div>
+                    <span id="risk-badge" class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#1C2216] text-lime-dim border border-lime-dim/20">
+                        18%
+                    </span>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center gap-6 my-2">
+                    <!-- Donut Canvas Container -->
+                    <div class="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
+                        <canvas id="riskDonutChart"></canvas>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span id="risk-center-val" class="text-2xl font-black font-mono text-white">18%</span>
+                            <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">RISK</span>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown Details -->
+                    <div class="space-y-2.5 flex-1 w-full text-xs">
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
+                            <span class="flex items-center gap-2 text-gray-300">
+                                <span class="w-2.5 h-2.5 rounded-full bg-lime-accent"></span>
+                                Suhu Udara (Bobot 35%)
+                            </span>
+                            <span id="breakdown-temp" class="font-mono font-bold text-white">18%</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
+                            <span class="flex items-center gap-2 text-gray-300">
+                                <span class="w-2.5 h-2.5 rounded-full bg-violet-accent"></span>
+                                Kekeringan Tanah (Bobot 25%)
+                            </span>
+                            <span id="breakdown-soil" class="font-mono font-bold text-white">38%</span>
+                        </div>
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
+                            <span class="flex items-center gap-2 text-gray-300">
+                                <span class="w-2.5 h-2.5 rounded-full bg-coral-accent"></span>
+                                Gas &amp; Smoldering (Bobot 40%)
+                            </span>
+                            <span id="breakdown-smoke" class="font-mono font-bold text-white">13%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity & Export Card (Cols 6) -->
+            <div class="lg:col-span-6 bento-card p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Aktivitas &amp; Logging Data</h2>
+                        <p id="packet-counter-label" class="text-xs text-gray-400">Sinkronisasi HiveMQ MQTT • Latensi ~35ms</p>
+                    </div>
+
+                    <!-- Export CSV Button (Matching reference circular icon pill) -->
+                    <button onclick="exportReportLog()" class="pl-3.5 pr-2 py-1.5 rounded-full bg-[#20252C] hover:bg-[#2A313B] border border-[#2D3440] text-xs font-semibold text-white flex items-center gap-2 transition">
+                        <span>Export CSV</span>
+                        <span class="w-6 h-6 rounded-full bg-lime-accent text-[#0E1013] flex items-center justify-center font-bold">
+                            <i class="ph-bold ph-arrow-up-right text-xs"></i>
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Live Mini Activity Area Wave -->
+                <div class="w-full h-[140px]">
+                    <canvas id="miniActivityChart"></canvas>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-[#232830]">
+                    <span id="last-sync-time">Sinkron: Memuat...</span>
+                    <a href="https://wokwi.com/projects/478866468495422465" target="_blank" class="hover:text-lime-dim flex items-center gap-1 transition">
+                        <span>Simulator Wokwi</span>
+                        <i class="ph-bold ph-arrow-square-out"></i>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ================= MODAL: REST API & PAYLOAD INJECTOR ================= -->
+    <div id="api-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bento-card max-w-lg w-full p-6 border border-[#2D333E] shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-[#232830]">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-lime-accent text-[#0E1013] flex items-center justify-center font-bold">
+                        <i class="ph-bold ph-brackets-curly"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">REST API &amp; JSON Injector</h3>
+                        <p class="text-xs text-gray-400">Kirim payload telemetri langsung ke Dashboard &amp; Backend</p>
+                    </div>
+                </div>
+                <button onclick="closeApiModal()" class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-gray-400 hover:text-white">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 my-4">
+                <div>
+                    <label class="text-xs font-semibold text-gray-300 block mb-1">Target Endpoint Backend REST API:</label>
+                    <div class="flex gap-2">
+                        <input id="api-endpoint-input" type="text" value="http://localhost:8000/api/telemetry/latest" class="flex-1 bg-[#13161A] border border-[#282E37] rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-lime-dim">
+                        <button onclick="connectCustomApiEndpoint()" class="px-3.5 py-2 rounded-xl bg-[#20252C] hover:bg-[#2A313C] text-xs font-semibold text-lime-dim border border-[#2E3541] transition">
+                            Koneksikan
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-semibold text-gray-300">Payload JSON (Bab 4 &amp; 6 Laporan):</label>
+                        <button onclick="resetSampleJson()" class="text-xs text-lime-dim hover:underline">Reset Contoh</button>
+                    </div>
+                    <textarea id="custom-json-input" rows="7" class="w-full bg-[#13161A] border border-[#282E37] rounded-xl p-3 font-mono text-xs text-lime-dim focus:outline-none focus:border-lime-dim">{
+  "device_id": "ESP32_FIRE_NODE_01",
+  "temperature": 32.5,
+  "humidity": 45.0,
+  "soil_moisture": 28.0,
+  "smoke_ppm": 120,
+  "status": "Warning"
+}</textarea>
+                    <p id="json-error-msg" class="text-xs text-rose-400 mt-1 hidden"></p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#232830]">
+                <button onclick="closeApiModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white">Batal</button>
+                <button onclick="submitCustomJson()" class="px-4 py-2 rounded-xl text-xs font-bold bg-lime-accent text-[#0E1013] hover:bg-lime-dim transition shadow-md shadow-lime-glow">
+                    Kirim ke Dashboard &amp; API
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ESP32 PINOUT GPIO (BAB 4 LAPORAN) ================= -->
+    <div id="pinout-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bento-card max-w-xl w-full p-6 border border-[#2D333E] shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-[#232830]">
+                <div>
+                    <h3 class="text-base font-bold text-white">Pemetaan Pin ESP32 DevKit V1 (Bab 4 &amp; 7)</h3>
+                    <p class="text-xs text-gray-400">Jalur ADC1 aman digunakan bersama koneksi Wi-Fi</p>
+                </div>
+                <button onclick="closePinoutModal()" class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-gray-400 hover:text-white">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto my-4">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-[#232830] text-gray-400 font-mono">
+                            <th class="py-2 px-3">Komponen</th>
+                            <th class="py-2 px-3">Pin</th>
+                            <th class="py-2 px-3">GPIO ESP32</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#232830] text-gray-300">
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">Sensor DHT22</td>
+                            <td class="py-2 px-3 font-mono">DATA</td>
+                            <td class="py-2 px-3 font-mono text-lime-dim">GPIO 4</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">MQ-2 Asap/Gas</td>
+                            <td class="py-2 px-3 font-mono">AOUT</td>
+                            <td class="py-2 px-3 font-mono text-coral-soft">GPIO 34 (ADC1_CH6)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">Soil Moisture Kapasitif</td>
+                            <td class="py-2 px-3 font-mono">AOUT</td>
+                            <td class="py-2 px-3 font-mono text-violet-soft">GPIO 35 (ADC1_CH7)</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">LED Hijau (Normal)</td>
+                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
+                            <td class="py-2 px-3 font-mono text-lime-dim">GPIO 18</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">LED Kuning (Warning)</td>
+                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
+                            <td class="py-2 px-3 font-mono text-amber-400">GPIO 19</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">LED Merah (Danger)</td>
+                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
+                            <td class="py-2 px-3 font-mono text-rose-400">GPIO 21</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-3 font-semibold text-white">Buzzer Aktif</td>
+                            <td class="py-2 px-3 font-mono">Signal</td>
+                            <td class="py-2 px-3 font-mono text-rose-400">GPIO 22</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-[#232830]">
+                <button onclick="closePinoutModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#20252C] hover:bg-[#2A313C] text-white">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT ENGINE & LOGIC ================= -->
+    <script>
+        // State Management
+        let currentMode = 'AUTO'; // 'AUTO', 'TC01', 'TC02', 'TC03', 'CUSTOM_API'
+        let packetCount = 28;
+        let audioMuted = false;
+        let customApiTimer = null;
+        let telemetryHistory = [];
+
+        // Telemetry payload
+        let currentPayload = {
+            device_id: "ESP32_FIRE_NODE_01",
+            temperature: 25.4,
+            humidity: 68.0,
+            soil_moisture: 62.0,
+            smoke_ppm: 45,
+            status: "Normal"
+        };
+
+        // Web Audio API Buzzer (GPIO 22)
+        let audioCtx = null;
+        function playBuzzerTone(duration = 200, freq = 2600) {
+            if (audioMuted) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration / 1000);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration / 1000);
+            } catch (e) {
+                // Audio blocked before user interaction
+            }
+        }
+
+        function testBuzzerBeep() {
+            playBuzzerTone(350, 2700);
+        }
+
+        function toggleAudioMute() {
+            audioMuted = !audioMuted;
+            const icon = document.getElementById('audio-icon');
+            const btn = document.getElementById('btn-audio');
+            if (audioMuted) {
+                icon.className = 'ph-fill ph-speaker-slash text-rose-400';
+                btn.classList.add('border-rose-500/40');
+            } else {
+                icon.className = 'ph-fill ph-speaker-high text-gray-300';
+                btn.classList.remove('border-rose-500/40');
+                playBuzzerTone(100, 2400);
+            }
+        }
+
+        // Charts
+        let mainChart, donutChart, miniChart;
+
+        function initCharts() {
+            // 1. Multivariate Telemetry Line Chart
+            const ctxMain = document.getElementById('telemetryChart').getContext('2d');
+            const initialLabels = ['12s', '10s', '8s', '6s', '4s', 'Now'];
+
+            mainChart = new Chart(ctxMain, {
+                type: 'line',
+                data: {
+                    labels: initialLabels,
+                    datasets: [
+                        {
+                            label: 'Suhu (°C)',
+                            data: [25.0, 25.2, 25.1, 25.3, 25.4, 25.4],
+                            borderColor: '#D4FF32',
+                            backgroundColor: 'rgba(212, 255, 50, 0.08)',
+                            borderWidth: 2.2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#D4FF32',
+                            tension: 0.35,
+                            fill: true
+                        },
+                        {
+                            label: 'Gambut (%)',
+                            data: [64.0, 63.5, 63.0, 62.5, 62.0, 62.0],
+                            borderColor: '#7B61FF',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#7B61FF',
+                            tension: 0.35,
+                            fill: false
+                        },
+                        {
+                            label: 'Asap (PPM/5)',
+                            data: [8.0, 8.5, 9.0, 8.8, 9.0, 9.0],
+                            borderColor: '#FF7A45',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#FF7A45',
+                            tension: 0.35,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1E2228',
+                            titleColor: '#F3F4F6',
+                            bodyColor: '#D1D5DB',
+                            borderColor: '#2F3642',
+                            borderWidth: 1,
+                            padding: 10,
+                            bodyFont: { family: 'JetBrains Mono', size: 12 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            // 2. Risk Donut Chart (Matching reference bottom donut)
+            const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
+            donutChart = new Chart(ctxDonut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Suhu', 'Kekeringan', 'Asap MQ-2', 'Sisa Aman'],
+                    datasets: [{
+                        data: [18, 38, 13, 31],
+                        backgroundColor: ['#D4FF32', '#7B61FF', '#FF7A45', '#20252D'],
+                        borderWidth: 0,
+                        hoverOffset: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '76%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1E2228',
+                            bodyFont: { family: 'JetBrains Mono', size: 11 }
+                        }
+                    }
+                }
+            });
+
+            // 3. Mini Activity Chart (Spline Area)
+            const ctxMini = document.getElementById('miniActivityChart').getContext('2d');
+            const gradMini = ctxMini.createLinearGradient(0, 0, 0, 120);
+            gradMini.addColorStop(0, 'rgba(212, 255, 50, 0.25)');
+            gradMini.addColorStop(1, 'rgba(212, 255, 50, 0.0)');
+
+            miniChart = new Chart(ctxMini, {
+                type: 'line',
+                data: {
+                    labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+                    datasets: [{
+                        label: 'Risk Wave',
+                        data: [16, 18, 17, 19, 18, 17, 18, 18],
+                        borderColor: '#D4FF32',
+                        backgroundColor: gradMini,
+                        borderWidth: 2,
+                        tension: 0.45,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, min: 0, max: 100 }
+                    }
+                }
+            });
+        }
+
+        // Evaluation Logic (Bab 5 Laporan)
+        function evaluateRiskStatus(temp, hum, soil, smoke) {
+            if (temp >= 40.0 || smoke >= 220 || (temp >= 34.0 && soil <= 22.0 && smoke >= 140)) {
+                return "Danger";
+            }
+            if (temp >= 30.0 || soil < 35.0 || smoke >= 95 || hum < 45.0) {
+                return "Warning";
+            }
+            return "Normal";
+        }
+
+        function calculateRiskPercentage(temp, hum, soil, smoke) {
+            const tempScore = Math.min(100, Math.max(0, ((temp - 20) / 30) * 100));
+            const soilDryScore = Math.min(100, Math.max(0, 100 - soil));
+            const smokeScore = Math.min(100, Math.max(0, (smoke / 350) * 100));
+            const risk = Math.round((tempScore * 0.35) + (soilDryScore * 0.25) + (smokeScore * 0.40));
+            return Math.min(100, Math.max(5, risk));
+        }
+
+        // Global UI Update Hook
+        window.updateDashboardFromAPI = function(payload) {
+            const temp = parseFloat(payload.temperature ?? 25.0);
+            const hum = parseFloat(payload.humidity ?? 65.0);
+            const soil = parseFloat(payload.soil_moisture ?? 60.0);
+            const smoke = parseInt(payload.smoke_ppm ?? 40);
+            const status = payload.status || evaluateRiskStatus(temp, hum, soil, smoke);
+            const deviceId = payload.device_id || "ESP32_FIRE_NODE_01";
+
+            currentPayload = {
+                device_id: deviceId,
+                temperature: Number(temp.toFixed(1)),
+                humidity: Number(hum.toFixed(1)),
+                soil_moisture: Number(soil.toFixed(1)),
+                smoke_ppm: smoke,
+                status: status
+            };
+
+            // 1. Update Header Info
+            document.getElementById('header-device-id').textContent = deviceId;
+            packetCount++;
+            document.getElementById('packet-counter-label').textContent = `Sinkronisasi HiveMQ • ${packetCount} Paket Diterima • Latensi 32ms`;
+            const nowStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            document.getElementById('last-sync-time').textContent = `Sinkron Terakhir: ${nowStr} WIB`;
+
+            // 2. Update KPI Value & Bars
+            document.getElementById('val-temp').textContent = currentPayload.temperature.toFixed(1);
+            document.getElementById('bar-temp').style.width = `${Math.min(100, (temp / 50) * 100)}%`;
+            document.getElementById('label-temp-state').textContent = temp >= 40 ? 'Suhu Kritis (>40°C)' : (temp >= 30 ? 'Pemanasan Awal (≥30°C)' : 'Normal (<30°C)');
+
+            document.getElementById('val-soil').textContent = currentPayload.soil_moisture.toFixed(1);
+            document.getElementById('bar-soil').style.width = `${Math.min(100, soil)}%`;
+            document.getElementById('label-soil-state').textContent = soil <= 22 ? 'Sangat Kering (Kritis ≤22%)' : (soil < 35 ? 'Mengering (<35%)' : 'Lembap Aman (≥35%)');
+
+            document.getElementById('val-smoke').textContent = currentPayload.smoke_ppm;
+            document.getElementById('bar-smoke').style.width = `${Math.min(100, (smoke / 350) * 100)}%`;
+            document.getElementById('label-smoke-state').textContent = smoke >= 220 ? 'Asap Pekat (≥220 PPM)' : (smoke >= 95 ? 'Indikasi Smoldering' : 'Bebas Emisi (<95 PPM)');
+
+            // 3. Update Hero Card (Status Utuh)
+            const heroTitle = document.getElementById('hero-status-title');
+            const heroSubtitle = document.getElementById('hero-status-subtitle');
+            const heroBadge = document.getElementById('hero-badge');
+            const heroIcon = document.getElementById('hero-status-icon');
+
+            const ledGreen = document.getElementById('led-green-dot');
+            const ledYellow = document.getElementById('led-yellow-dot');
+            const ledRed = document.getElementById('led-red-dot');
+            const buzzerDot = document.getElementById('buzzer-dot');
+            const actSummary = document.getElementById('actuator-summary-label');
+
+            // Reset Hardware LEDs
+            ledGreen.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
+            ledYellow.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
+            ledRed.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
+            buzzerDot.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
+
+            if (status.toLowerCase() === 'danger') {
+                heroTitle.textContent = "DANGER";
+                heroBadge.textContent = "KONDISI KRITIS";
+                heroSubtitle.textContent = "Buzzer sirene & LED Merah aktif!";
+                heroIcon.className = "ph-fill ph-fire text-2xl animate-bounce";
+
+                ledRed.className = "w-4 h-4 rounded-full status-dot-danger transition-all";
+                buzzerDot.className = "w-4 h-4 rounded-full status-dot-danger transition-all";
+                actSummary.className = "font-semibold text-rose-400 flex items-center gap-1.5 animate-pulse";
+                actSummary.innerHTML = `<i class="ph-fill ph-warning-octagon"></i> ALARM AKTIF (GPIO 21 &amp; 22)`;
+
+                playBuzzerTone(260, 2800);
+            } else if (status.toLowerCase() === 'warning') {
+                heroTitle.textContent = "WARNING";
+                heroBadge.textContent = "WASPADA SMOLDERING";
+                heroSubtitle.textContent = "Indikasi asap/tanah gambut mengering";
+                heroIcon.className = "ph-fill ph-warning-diamond text-2xl";
+
+                ledYellow.className = "w-4 h-4 rounded-full status-dot-warning transition-all";
+                actSummary.className = "font-semibold text-amber-400 flex items-center gap-1.5";
+                actSummary.innerHTML = `<i class="ph-fill ph-warning"></i> LED Kuning ON (GPIO 19)`;
+            } else {
+                heroTitle.textContent = "NORMAL";
+                heroBadge.textContent = "AMAN TERKENDALI";
+                heroSubtitle.textContent = "Kondisi hutan &amp; lahan terkendali";
+                heroIcon.className = "ph-fill ph-shield-check text-2xl";
+
+                ledGreen.className = "w-4 h-4 rounded-full status-dot-normal transition-all";
+                actSummary.className = "font-semibold text-lime-dim flex items-center gap-1.5";
+                actSummary.innerHTML = `<i class="ph-fill ph-check-circle"></i> Siaga Normal (GPIO 18)`;
+            }
+
+            // 4. Update Risk Donut & Breakdown
+            const riskPct = calculateRiskPercentage(temp, hum, soil, smoke);
+            const tempScore = Math.round(Math.min(100, Math.max(0, ((temp - 20) / 30) * 100)));
+            const soilScore = Math.round(Math.min(100, Math.max(0, 100 - soil)));
+            const smokeScore = Math.round(Math.min(100, Math.max(0, (smoke / 350) * 100)));
+
+            document.getElementById('risk-badge').textContent = `${riskPct}%`;
+            document.getElementById('risk-center-val').textContent = `${riskPct}%`;
+            document.getElementById('breakdown-temp').textContent = `${tempScore}%`;
+            document.getElementById('breakdown-soil').textContent = `${soilScore}%`;
+            document.getElementById('breakdown-smoke').textContent = `${smokeScore}%`;
+
+            if (donutChart) {
+                const remainder = Math.max(0, 100 - riskPct);
+                donutChart.data.datasets[0].data = [
+                    Math.round(tempScore * 0.35),
+                    Math.round(soilScore * 0.25),
+                    Math.round(smokeScore * 0.40),
+                    remainder
+                ];
+                donutChart.update('none');
+            }
+
+            // 5. Update Line & Mini Wave Charts
+            if (mainChart && miniChart) {
+                mainChart.data.labels.push(nowStr.slice(0, 8));
+                mainChart.data.labels.shift();
+
+                mainChart.data.datasets[0].data.push(currentPayload.temperature);
+                mainChart.data.datasets[0].data.shift();
+
+                mainChart.data.datasets[1].data.push(currentPayload.soil_moisture);
+                mainChart.data.datasets[1].data.shift();
+
+                mainChart.data.datasets[2].data.push(Number((currentPayload.smoke_ppm / 5).toFixed(1)));
+                mainChart.data.datasets[2].data.shift();
+                mainChart.update('none');
+
+                miniChart.data.datasets[0].data.push(riskPct);
+                miniChart.data.datasets[0].data.shift();
+                miniChart.update('none');
+            }
+
+            // Save log history for CSV
+            telemetryHistory.push({
+                timestamp: nowStr,
+                ...currentPayload,
+                risk_index: riskPct
+            });
+            if (telemetryHistory.length > 100) telemetryHistory.shift();
+        };
+
+        // Scenario Test Cases (Bab 11)
+        function applyScenario(mode) {
+            currentMode = mode;
+            ['AUTO', 'TC01', 'TC02', 'TC03'].forEach(id => {
+                const el = document.getElementById(`pill-${id}`);
+                if (el) el.classList.remove('active');
+            });
+            const activeEl = document.getElementById(`pill-${mode}`);
+            if (activeEl) activeEl.classList.add('active');
+
+            if (mode === 'TC01') {
+                window.updateDashboardFromAPI({
+                    device_id: "ESP32_FIRE_NODE_01",
+                    temperature: 25.0,
+                    humidity: 68.5,
+                    soil_moisture: 65.0,
+                    smoke_ppm: 40,
+                    status: "Normal"
+                });
+            } else if (mode === 'TC02') {
+                window.updateDashboardFromAPI({
+                    device_id: "ESP32_FIRE_NODE_01",
+                    temperature: 32.5,
+                    humidity: 45.0,
+                    soil_moisture: 28.0,
+                    smoke_ppm: 120,
+                    status: "Warning"
+                });
+            } else if (mode === 'TC03') {
+                window.updateDashboardFromAPI({
+                    device_id: "ESP32_FIRE_NODE_01",
+                    temperature: 42.8,
+                    humidity: 29.5,
+                    soil_moisture: 16.0,
+                    smoke_ppm: 315,
+                    status: "Danger"
+                });
+            }
+        }
+
+        // Live Simulation Loop (Jika offline tanpa backend)
+        function startTelemetryLoop() {
+            setInterval(() => {
+                if (currentMode === 'CUSTOM_API') return;
+
+                let base = { ...currentPayload };
+                if (currentMode === 'AUTO') {
+                    base.temperature = Math.max(24, Math.min(44, base.temperature + (Math.random() - 0.48) * 0.8));
+                    base.humidity = Math.max(25, Math.min(85, base.humidity + (Math.random() - 0.5) * 1.5));
+                    base.soil_moisture = Math.max(12, Math.min(80, base.soil_moisture + (Math.random() - 0.5) * 1.0));
+                    base.smoke_ppm = Math.max(30, Math.min(350, Math.round(base.smoke_ppm + (Math.random() - 0.48) * 7)));
+                    base.status = evaluateRiskStatus(base.temperature, base.humidity, base.soil_moisture, base.smoke_ppm);
+                } else {
+                    // Small breathing jitter on fixed test case
+                    base.temperature = base.temperature + (Math.random() - 0.5) * 0.2;
+                }
+
+                window.updateDashboardFromAPI(base);
+            }, 3000);
+        }
+
+        // Auto Poll Backend API (Fallback ke mode lokal jika backend belum berjalan)
+        async function autoCheckBackend() {
+            try {
+                const res = await fetch('http://localhost:8000/api/telemetry/latest', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    window.updateDashboardFromAPI(data);
+                    // Poll tiap 3 detik
+                    setInterval(async () => {
+                        if (currentMode === 'AUTO') {
+                            try {
+                                const r = await fetch('http://localhost:8000/api/telemetry/latest', { cache: 'no-store' });
+                                if (r.ok) {
+                                    const d = await r.json();
+                                    window.updateDashboardFromAPI(d);
+                                }
+                            } catch(e) {}
+                        }
+                    }, 3000);
+                    return true;
+                }
+            } catch(e) {
+                // Backend tidak aktif, jalankan generator lokal
+                startTelemetryLoop();
+            }
+        }
+
+        // Modal Controls
+        function openApiModal() {
+            document.getElementById('custom-json-input').value = JSON.stringify(currentPayload, null, 2);
+            document.getElementById('api-modal').classList.remove('hidden');
+            document.getElementById('api-modal').classList.add('flex');
+        }
+        function closeApiModal() {
+            document.getElementById('api-modal').classList.add('hidden');
+            document.getElementById('api-modal').classList.remove('flex');
+        }
+        function openPinoutModal() {
+            document.getElementById('pinout-modal').classList.remove('hidden');
+            document.getElementById('pinout-modal').classList.add('flex');
+        }
+        function closePinoutModal() {
+            document.getElementById('pinout-modal').classList.add('hidden');
+            document.getElementById('pinout-modal').classList.remove('flex');
+        }
+
+        function resetSampleJson() {
+            const sample = {
+                device_id: "ESP32_FIRE_NODE_01",
+                temperature: 32.5,
+                humidity: 45.0,
+                soil_moisture: 28.0,
+                smoke_ppm: 120,
+                status: "Warning"
+            };
+            document.getElementById('custom-json-input').value = JSON.stringify(sample, null, 2);
+        }
+
+        async function submitCustomJson() {
+            const raw = document.getElementById('custom-json-input').value;
+            const errEl = document.getElementById('json-error-msg');
+            try {
+                const parsed = JSON.parse(raw);
+                errEl.classList.add('hidden');
+                window.updateDashboardFromAPI(parsed);
+
+                // Coba POST ke backend jika ada
+                try {
+                    await fetch('http://localhost:8000/api/telemetry/inject', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(parsed)
+                    });
+                } catch(e) {}
+
+                closeApiModal();
+            } catch (err) {
+                errEl.textContent = "Format JSON tidak valid: " + err.message;
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function connectCustomApiEndpoint() {
+            const url = document.getElementById('api-endpoint-input').value.trim();
+            if (!url) return;
+            if (customApiTimer) clearInterval(customApiTimer);
+            currentMode = 'CUSTOM_API';
+
+            const fetchNow = async () => {
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    window.updateDashboardFromAPI(data);
+                } catch (err) {
+                    console.warn("Gagal fetch API:", err);
+                }
+            };
+            fetchNow();
+            customApiTimer = setInterval(fetchNow, 3000);
+            closeApiModal();
+        }
+
+        function exportReportLog() {
+            if (telemetryHistory.length === 0) return;
+            const headers = "Timestamp,Device_ID,Temperature_C,Humidity_Pct,Soil_Moisture_Pct,Smoke_PPM,Status,Risk_Index_Pct\n";
+            const rows = telemetryHistory.map(r =>
+                `${r.timestamp},${r.device_id},${r.temperature},${r.humidity},${r.soil_moisture},${r.smoke_ppm},${r.status},${r.risk_index}`
+            ).join("\n");
+
+            const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Vanguard_Karhutla_Telemetry_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+        }
+
+        window.onload = function() {
+            initCharts();
+            window.updateDashboardFromAPI(currentPayload);
+            autoCheckBackend();
+        };
+    </script>
+</body>
+</html>

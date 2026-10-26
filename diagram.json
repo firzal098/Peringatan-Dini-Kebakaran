@@ -3,32 +3,26 @@
   "author": "Testarossa's Vanguard - UAD",
   "editor": "wokwi",
   "parts": [
-    {
-      "type": "board-esp32-devkit-c-v4",
-      "id": "esp",
-      "top": 0,
-      "left": 0,
-      "attrs": {}
-    },
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
     {
       "type": "wokwi-dht22",
       "id": "dht1",
-      "top": -130,
-      "left": -220,
+      "top": -143.7,
+      "left": -216.6,
       "attrs": { "temperature": "27", "humidity": "68" }
     },
     {
       "type": "wokwi-gas-sensor",
       "id": "mq2",
-      "top": 60,
-      "left": -230,
+      "top": 117.9,
+      "left": -319.4,
       "attrs": { "ppm": "90" }
     },
     {
       "type": "wokwi-potentiometer",
       "id": "pot_soil",
-      "top": 200,
-      "left": -180,
+      "top": 248.3,
+      "left": -230.6,
       "attrs": { "value": "520", "label": "Soil Moisture" }
     },
     {
@@ -66,8 +60,8 @@
     {
       "type": "wokwi-resistor",
       "id": "r_red",
-      "top": 70,
-      "left": 190,
+      "top": 72,
+      "left": 191.45,
       "rotate": 90,
       "attrs": { "value": "220" }
     },
@@ -82,41 +76,34 @@
     {
       "type": "wokwi-buzzer",
       "id": "buzzer",
-      "top": 160,
-      "left": 216,
+      "top": 146.4,
+      "left": 232.2,
       "attrs": { "volume": "0.4" }
     }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-
-    [ "dht1:VCC", "esp:3V3",   "red",   [ "h0" ] ],
-    [ "dht1:SDA", "esp:4",     "blue",  [ "h0" ] ],
-    [ "dht1:GND", "esp:GND.1", "black", [ "h0" ] ],
-
-    [ "mq2:VCC", "esp:5V",    "red",    [ "h0" ] ],
-    [ "mq2:AO",  "esp:34",    "orange", [ "h0" ] ],
-    [ "mq2:GND", "esp:GND.1", "black",  [ "h0" ] ],
-
-    [ "pot_soil:VCC", "esp:3V3",   "red",    [ "h0" ] ],
-    [ "pot_soil:SIG", "esp:35",    "purple", [ "h0" ] ],
-    [ "pot_soil:GND", "esp:GND.1", "black",  [ "h0" ] ],
-
-    [ "esp:18", "r_green:1",  "green", [ "h0" ] ],
-    [ "r_green:2", "led_green:A",  "green", [ "h0" ] ],
-    [ "led_green:C", "esp:GND.2", "black",  [ "h0" ] ],
-
-    [ "esp:19", "r_yellow:1", "#FFD700", [ "h0" ] ],
+    [ "dht1:VCC", "esp:3V3", "red", [ "v9.6", "h137.8", "v48" ] ],
+    [ "dht1:SDA", "esp:4", "blue", [ "v19.2", "h307.3", "v153.6" ] ],
+    [ "dht1:GND", "esp:GND.1", "black", [ "v28.8", "h118.6", "v153.6" ] ],
+    [ "mq2:VCC", "esp:5V", "red", [ "v37.5", "h187.01" ] ],
+    [ "mq2:AO", "esp:34", "orange", [ "h0" ] ],
+    [ "mq2:GND", "esp:GND.1", "black", [ "h16.2", "v-0.8", "h99", "v19.2" ] ],
+    [ "pot_soil:VCC", "esp:3V3", "red", [ "h92.6", "v-239.7" ] ],
+    [ "pot_soil:SIG", "esp:35", "purple", [ "h121.8", "v-191.7" ] ],
+    [ "pot_soil:GND", "esp:GND.1", "black", [ "h144", "v-163.2" ] ],
+    [ "esp:18", "r_green:1", "green", [ "h81.64", "v-219.6" ] ],
+    [ "r_green:2", "led_green:A", "green", [ "h0" ] ],
+    [ "led_green:C", "esp:GND.2", "black", [ "h-113.4", "v123.8" ] ],
+    [ "esp:19", "r_yellow:1", "#FFD700", [ "h91.24", "v-130" ] ],
     [ "r_yellow:2", "led_yellow:A", "#FFD700", [ "h0" ] ],
-    [ "led_yellow:C", "esp:GND.2", "black", [ "h0" ] ],
-
-    [ "esp:21", "r_red:1",  "red",   [ "h0" ] ],
-    [ "r_red:2", "led_red:A",  "red",   [ "h0" ] ],
-    [ "led_red:C", "esp:GND.2", "black", [ "h0" ] ],
-
-    [ "esp:22",    "buzzer:2", "red",   [ "h0" ] ],
-    [ "buzzer:1",  "esp:GND.2", "black", [ "h0" ] ]
+    [ "led_yellow:C", "esp:GND.2", "black", [ "h-113.4", "v43.8" ] ],
+    [ "esp:21", "r_red:1", "red", [ "h100.84", "v-30.8" ] ],
+    [ "r_red:2", "led_red:A", "red", [ "h0" ] ],
+    [ "led_red:C", "esp:GND.2", "black", [ "h-113.4", "v-36.2" ] ],
+    [ "esp:22", "buzzer:2", "red", [ "h24.04", "v220.8", "h128.2" ] ],
+    [ "buzzer:1", "esp:GND.2", "black", [ "h-105.6", "v-201.6" ] ]
   ],
   "dependencies": {}
 }

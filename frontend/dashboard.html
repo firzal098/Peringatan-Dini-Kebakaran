@@ -1017,33 +1017,54 @@
             const activeEl = document.getElementById(`pill-${mode}`);
             if (activeEl) activeEl.classList.add('active');
 
+            let payload = null;
+            let controlCmd = null;
+
             if (mode === 'TC01') {
-                window.updateDashboardFromAPI({
+                payload = {
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 25.0,
                     humidity: 68.5,
                     soil_moisture: 65.0,
                     smoke_ppm: 40,
                     status: "Normal"
-                });
+                };
+                controlCmd = "Normal";
             } else if (mode === 'TC02') {
-                window.updateDashboardFromAPI({
+                payload = {
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 32.5,
                     humidity: 45.0,
                     soil_moisture: 28.0,
                     smoke_ppm: 120,
                     status: "Warning"
-                });
+                };
+                controlCmd = "Warning";
             } else if (mode === 'TC03') {
-                window.updateDashboardFromAPI({
+                payload = {
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 42.8,
                     humidity: 29.5,
                     soil_moisture: 16.0,
                     smoke_ppm: 315,
                     status: "Danger"
-                });
+                };
+                controlCmd = "Danger";
+            } else if (mode === 'AUTO') {
+                fetch(`${API_BASE}/api/control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: "AUTO" })
+                }).catch(() => {});
+            }
+
+            if (payload) {
+                window.updateDashboardFromAPI(payload);
+                fetch(`${API_BASE}/api/control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: controlCmd, mode: mode })
+                }).catch(() => {});
             }
         }
 
@@ -1068,10 +1089,12 @@
             }, 3000);
         }
 
+        const API_BASE = (window.location.protocol.startsWith('http')) ? window.location.origin : 'http://localhost:8000';
+
         // Auto Poll Backend API (Fallback ke mode lokal jika backend belum berjalan)
         async function autoCheckBackend() {
             try {
-                const res = await fetch('http://localhost:8000/api/telemetry/latest', { cache: 'no-store' });
+                const res = await fetch(`${API_BASE}/api/telemetry/latest`, { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     window.updateDashboardFromAPI(data);
@@ -1079,7 +1102,7 @@
                     setInterval(async () => {
                         if (currentMode === 'AUTO') {
                             try {
-                                const r = await fetch('http://localhost:8000/api/telemetry/latest', { cache: 'no-store' });
+                                const r = await fetch(`${API_BASE}/api/telemetry/latest`, { cache: 'no-store' });
                                 if (r.ok) {
                                     const d = await r.json();
                                     window.updateDashboardFromAPI(d);
@@ -1097,6 +1120,7 @@
 
         // Modal Controls
         function openApiModal() {
+            document.getElementById('api-endpoint-input').value = `${API_BASE}/api/telemetry/latest`;
             document.getElementById('custom-json-input').value = JSON.stringify(currentPayload, null, 2);
             document.getElementById('api-modal').classList.remove('hidden');
             document.getElementById('api-modal').classList.add('flex');
@@ -1136,7 +1160,7 @@
 
                 // Coba POST ke backend jika ada
                 try {
-                    await fetch('http://localhost:8000/api/telemetry/inject', {
+                    await fetch(`${API_BASE}/api/telemetry/inject`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(parsed)

@@ -375,15 +375,30 @@
 
                 <!-- Mini-Map Card (Lg: Col-Span 4 - KOTAK PROPORSIONAL) -->
                 <div class="lg:col-span-4 f-card p-4 xl:p-5 flex flex-col justify-between min-h-[360px]">
-                    <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-flame-500 animate-pulse"></span>
                             <h3 class="text-xs font-bold text-white uppercase tracking-wider">Peta Sebaran &amp; Lokasi</h3>
                         </div>
-                        <button onclick="switchView('map')" class="text-xs font-semibold text-flame-500 hover:text-flame-600 flex items-center gap-1 transition">
-                            <span>Buka Penuh</span>
-                            <i class="ph-bold ph-arrow-right"></i>
-                        </button>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <!-- Layer Switcher Mini -->
+                            <div class="flex items-center bg-[#111114] border border-[rgba(255,255,255,0.08)] rounded-lg p-0.5">
+                                <button onclick="setMapLayer('satellite')" id="btn-layer-mini-satellite" class="px-2 py-0.5 rounded text-[10px] font-bold transition bg-flame-500 text-white shadow">🛰️ Satelit</button>
+                                <button onclick="setMapLayer('dark')" id="btn-layer-mini-dark" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-400 hover:text-white transition">🌑 Gelap</button>
+                                <button onclick="setMapLayer('streets')" id="btn-layer-mini-streets" class="px-2 py-0.5 rounded text-[10px] font-semibold text-gray-400 hover:text-white transition">🗺️ Jalan</button>
+                            </div>
+
+                            <!-- Tombol Buka di Google Maps -->
+                            <a id="btn-gmaps-link" href="https://www.google.com/maps?q=-7.833776,110.383460" target="_blank" rel="noopener noreferrer" class="text-[10px] font-semibold text-gray-300 hover:text-white bg-[#1A1A20] hover:bg-[#22222A] px-2.5 py-1 rounded-lg border border-[rgba(255,255,255,0.08)] flex items-center gap-1.5 transition" title="Buka titik koordinat node aktif di Google Maps">
+                                <i class="ph-bold ph-arrow-square-out text-flame-500"></i>
+                                <span>Google Maps</span>
+                            </a>
+
+                            <button onclick="switchView('map')" class="text-xs font-semibold text-flame-500 hover:text-flame-600 flex items-center gap-1 transition">
+                                <span>Buka Penuh</span>
+                                <i class="ph-bold ph-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Mini-Map Canvas (Kotak Proporsional 300px) -->
@@ -609,11 +624,27 @@
             <section class="flex-1 h-full relative z-0">
                 <div id="full-map" class="w-full h-full"></div>
 
-                <!-- Floating Map Controls / Reset Zoom Button -->
-                <div class="absolute bottom-5 right-5 z-[1000] flex items-center gap-2 bg-[#16161A] border border-[rgba(255,255,255,0.12)] p-1.5 rounded-xl shadow-2xl">
+                <!-- Floating Top Controls (Layer Switcher & Google Maps) -->
+                <div class="absolute top-5 right-5 z-[1000] flex items-center gap-2 bg-[#16161A]/95 backdrop-blur-md border border-[rgba(255,255,255,0.12)] p-1.5 rounded-xl shadow-2xl">
+                    <!-- Layer Switcher Buttons -->
+                    <div class="flex items-center bg-[#111114] border border-[rgba(255,255,255,0.08)] rounded-lg p-0.5">
+                        <button onclick="setMapLayer('satellite')" id="btn-layer-full-satellite" class="px-2.5 py-1 rounded text-[11px] font-bold transition bg-flame-500 text-white shadow">🛰️ Satelit</button>
+                        <button onclick="setMapLayer('dark')" id="btn-layer-full-dark" class="px-2.5 py-1 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition">🌑 Gelap</button>
+                        <button onclick="setMapLayer('streets')" id="btn-layer-full-streets" class="px-2.5 py-1 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition">🗺️ Jalan</button>
+                    </div>
+
+                    <!-- GMaps Button -->
+                    <a id="btn-gmaps-link-full" href="https://www.google.com/maps?q=-7.833776,110.383460" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg text-xs font-semibold bg-[#202026] hover:bg-[#282832] text-white flex items-center gap-1.5 transition border border-[rgba(255,255,255,0.08)]" title="Buka titik koordinat node aktif di Google Maps">
+                        <i class="ph-bold ph-arrow-square-out text-flame-500"></i>
+                        <span>Google Maps</span>
+                    </a>
+                </div>
+
+                <!-- Floating Bottom Controls / Reset Zoom Button -->
+                <div class="absolute bottom-5 right-5 z-[1000] flex items-center gap-2 bg-[#16161A]/95 backdrop-blur-md border border-[rgba(255,255,255,0.12)] p-1.5 rounded-xl shadow-2xl">
                     <button onclick="resetMapBounds()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#202026] hover:bg-[#282832] text-white flex items-center gap-1.5 transition">
                         <i class="ph-bold ph-crosshair"></i>
-                        <span>Fokus Sebaran Nasional</span>
+                        <span>Fokus Titik Node</span>
                     </button>
                 </div>
             </section>
@@ -868,54 +899,135 @@
             const smokeLabel = node.smoke >= 220 ? `Asap Pekat (${node.smoke} PPM)` : (node.smoke >= 95 ? `Indikasi Smoldering (${node.smoke} PPM)` : `Bersih (${node.smoke} PPM)`);
 
             return `
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; width: 260px; padding: 14px; border-radius: 16px; background: #16161A;">
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; width: 270px; padding: 14px; border-radius: 16px; background: #16161A;">
                     <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 8px;">
                         <span style="display:inline-block; font-size: 11px; font-weight: 800; color: ${statusColor}; letter-spacing: 0.5px;">${statusLabel}</span>
                         <h4 style="margin: 2px 0 0 0; font-size: 13px; font-weight: 700; color: #FFFFFF;">${node.name}</h4>
+                        <div style="font-size: 10px; color: #9CA3AF; margin-top: 2px;">📍 ${node.lat.toFixed(6)}, ${node.lng.toFixed(6)}</div>
                     </div>
                     <div style="font-size: 12px; color: #D1D5DB; line-height: 1.6; margin-bottom: 10px;">
                         <div>🌡️ <span style="color:#9CA3AF;">Suhu :</span> <b style="color:#FFF;">${node.temp}°C</b></div>
                         <div>💧 <span style="color:#9CA3AF;">Kondisi Tanah :</span> <b style="color:#FFF;">${soilLabel}</b></div>
                         <div>💨 <span style="color:#9CA3AF;">Indikasi Asap :</span> <b style="color:#FFF;">${smokeLabel}</b></div>
                     </div>
-                    <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 10px; color: #6B7280;">🕒 ${node.updated}</span>
-                        <button onclick="focusNode('${node.id}')" style="background: #FF5500; color: #FFFFFF; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: none; cursor: pointer;">Fokuskan Data</button>
+                    <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                        <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" rel="noopener noreferrer" style="background: #202026; color: #E5E7EB; font-size: 10px; font-weight: 700; padding: 5px 9px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.1); transition: background 0.2s;" title="Buka koordinat di tab baru Google Maps">
+                            <span>🗺️ GMaps</span>
+                        </a>
+                        <button onclick="focusNode('${node.id}')" style="background: #FF5500; color: #FFFFFF; font-size: 10px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: none; cursor: pointer;">Fokuskan Data</button>
                     </div>
                 </div>
             `;
         }
 
+        // ── MAP TILES & LAYER SWITCHER CONFIGURATION ──
+        const MAP_TILE_CONFIGS = {
+            satellite: {
+                url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                options: {
+                    maxZoom: 20,
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '&copy; Google Maps Satelit'
+                }
+            },
+            dark: {
+                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                options: {
+                    maxZoom: 20,
+                    subdomains: ['a', 'b', 'c', 'd'],
+                    attribution: '&copy; OpenStreetMap &copy; CARTO'
+                }
+            },
+            streets: {
+                url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                options: {
+                    maxZoom: 20,
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '&copy; Google Maps'
+                }
+            }
+        };
+
+        let currentLayerKey = 'satellite';
+        let miniMapTileLayer = null;
+        let fullMapTileLayer = null;
+
+        function setMapLayer(layerKey) {
+            if (!MAP_TILE_CONFIGS[layerKey]) return;
+            currentLayerKey = layerKey;
+            const cfg = MAP_TILE_CONFIGS[layerKey];
+
+            // 1. Update miniMap tile
+            if (miniMap) {
+                if (miniMapTileLayer) miniMap.removeLayer(miniMapTileLayer);
+                miniMapTileLayer = L.tileLayer(cfg.url, cfg.options).addTo(miniMap);
+            }
+
+            // 2. Update fullMap tile
+            if (fullMap) {
+                if (fullMapTileLayer) fullMap.removeLayer(fullMapTileLayer);
+                fullMapTileLayer = L.tileLayer(cfg.url, cfg.options).addTo(fullMap);
+            }
+
+            // 3. Update button active styles (Mini-Map & Full-Map)
+            ['satellite', 'dark', 'streets'].forEach(key => {
+                const btnMini = document.getElementById(`btn-layer-mini-${key}`);
+                const btnFull = document.getElementById(`btn-layer-full-${key}`);
+                const isActive = (key === layerKey);
+
+                if (btnMini) {
+                    btnMini.className = isActive
+                        ? "px-2 py-0.5 rounded text-[10px] font-bold transition bg-flame-500 text-white shadow"
+                        : "px-2 py-0.5 rounded text-[10px] font-semibold text-gray-400 hover:text-white transition";
+                }
+                if (btnFull) {
+                    btnFull.className = isActive
+                        ? "px-2.5 py-1 rounded text-[11px] font-bold transition bg-flame-500 text-white shadow"
+                        : "px-2.5 py-1 rounded text-[11px] font-semibold text-gray-400 hover:text-white transition";
+                }
+            });
+        }
+
+        function updateGmapsLink(lat, lng) {
+            if (lat === undefined || lng === undefined) return;
+            const url = `https://www.google.com/maps?q=${lat},${lng}`;
+            const btnMini = document.getElementById('btn-gmaps-link');
+            const btnFull = document.getElementById('btn-gmaps-link-full');
+            if (btnMini) {
+                btnMini.href = url;
+            }
+            if (btnFull) {
+                btnFull.href = url;
+            }
+        }
+
         function initMaps() {
-            // Google Maps Roadmap Tiles (Direct, fast, authentic Indonesian street & landmark names, no API key required)
-            const googleRoadmapUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-            const googleOptions = {
-                maxZoom: 20,
-                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '&copy; Google Maps'
-            };
+            const primaryNode = IOT_NODES[0];
 
             // 1. Mini-Map di Dashboard (Fokus lokasi node aktif)
-            const primaryNode = IOT_NODES[0];
             miniMap = L.map('mini-map', {
                 center: [primaryNode.lat, primaryNode.lng],
                 zoom: 16,
                 zoomControl: false,
                 attributionControl: false
             });
-            L.tileLayer(googleRoadmapUrl, googleOptions).addTo(miniMap);
-            miniMapMarker = L.marker([primaryNode.lat, primaryNode.lng], {
-                icon: createCustomPin(getMarkerColor(primaryNode.status), primaryNode.status === 'Danger')
-            }).addTo(miniMap);
 
             // 2. Full-Map di Tab Map Monitoring (Fokus langsung ke lokasi node terdaftar)
             fullMap = L.map('full-map', {
                 center: [primaryNode.lat, primaryNode.lng],
-                zoom: 15,
+                zoom: 16,
                 zoomControl: true,
                 attributionControl: false
             });
-            L.tileLayer(googleRoadmapUrl, googleOptions).addTo(fullMap);
+
+            // Pasang layer default: Satelit
+            setMapLayer('satellite');
+
+            miniMapMarker = L.marker([primaryNode.lat, primaryNode.lng], {
+                icon: createCustomPin(getMarkerColor(primaryNode.status), primaryNode.status === 'Danger')
+            }).addTo(miniMap);
+
+            updateGmapsLink(primaryNode.lat, primaryNode.lng);
 
             populateFullMapMarkers();
             renderNodesList();
@@ -969,6 +1081,12 @@
                                 <span>💧 ${node.soil}%</span>
                                 <span>💨 ${node.smoke} PPM</span>
                             </div>
+                            <div class="flex items-center justify-between pt-1 border-t border-white/20 text-[10px] text-white/90 font-mono">
+                                <span>📍 ${node.lat.toFixed(5)}, ${node.lng.toFixed(5)}</span>
+                                <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" class="bg-black/30 hover:bg-black/50 px-2 py-0.5 rounded flex items-center gap-1 transition" title="Buka di Google Maps">
+                                    <i class="ph-bold ph-arrow-square-out text-white"></i> GMaps
+                                </a>
+                            </div>
                         </div>
                     `;
                 }
@@ -989,6 +1107,12 @@
                             <span>🌡️ ${node.temp}°C</span>
                             <span>💧 ${node.soil}%</span>
                             <span>💨 ${node.smoke} PPM</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-1 border-t border-[rgba(255,255,255,0.05)] text-[10px] text-gray-500 font-mono">
+                            <span>📍 ${node.lat.toFixed(5)}, ${node.lng.toFixed(5)}</span>
+                            <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" class="text-gray-400 hover:text-white flex items-center gap-1 transition" title="Buka di Google Maps">
+                                <i class="ph-bold ph-arrow-square-out text-flame-500"></i> GMaps
+                            </a>
                         </div>
                     </div>
                 `;
@@ -1025,7 +1149,9 @@
             const node = IOT_NODES.find(n => n.id === nodeId);
             if (!node || !fullMap) return;
 
-            fullMap.flyTo([node.lat, node.lng], 12, { duration: 1.2 });
+            updateGmapsLink(node.lat, node.lng);
+
+            fullMap.flyTo([node.lat, node.lng], 16, { duration: 1.2 });
             const marker = fullMapMarkers.find(m => m.nodeId === nodeId);
             if (marker) {
                 setTimeout(() => marker.openPopup(), 1300);
@@ -1037,6 +1163,8 @@
             renderNodesList();
             const node = IOT_NODES.find(n => n.id === nodeId);
             if (!node) return;
+
+            updateGmapsLink(node.lat, node.lng);
 
             // Update main state to this node
             window.updateDashboardFromAPI({
@@ -1050,7 +1178,7 @@
 
             // Update mini map center
             if (miniMap) {
-                miniMap.setView([node.lat, node.lng], 12);
+                miniMap.setView([node.lat, node.lng], 16);
                 if (miniMapMarker) {
                     miniMapMarker.setLatLng([node.lat, node.lng]);
                     miniMapMarker.setIcon(createCustomPin(getMarkerColor(node.status), node.status === 'Danger'));
@@ -1062,8 +1190,9 @@
 
         function resetMapBounds() {
             if (!fullMap || IOT_NODES.length === 0) return;
-            const primary = IOT_NODES[0];
-            fullMap.flyTo([primary.lat, primary.lng], 15, { duration: 1.2 });
+            const targetNode = IOT_NODES.find(n => n.id === selectedNodeId) || IOT_NODES[0];
+            updateGmapsLink(targetNode.lat, targetNode.lng);
+            fullMap.flyTo([targetNode.lat, targetNode.lng], 16, { duration: 1.2 });
         }
 
         // ── 7. VIEW SWITCHER (DASHBOARD <-> MAP) ──
@@ -1308,6 +1437,7 @@
 
             // 6. Update Map Markers & Center
             if (primary) {
+                updateGmapsLink(primary.lat, primary.lng);
                 if (miniMapMarker) {
                     miniMapMarker.setLatLng([primary.lat, primary.lng]);
                     miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), status === 'Danger'));

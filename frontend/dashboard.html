@@ -23,6 +23,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
+    <!-- Paho MQTT WebSocket Client (Live Direct HiveMQ Broker Bridge) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -1359,10 +1362,75 @@
             }
         }
 
-        // ── 10. BACKGROUND SIMULATION & AUTO POLL BACKEND ──
+        // ── 10. REAL-TIME DATA ADAPTER (REST API & HIVEMQ WEBSOCKET) ──
+        let isRealDataConnected = false;
+        let telemetryLoopTimer = null;
+        let mqttWSClient = null;
+
+        function getApiUrl(endpoint) {
+            // Jika disajikan via server web (Google Colab domain/iframe atau Localhost HTTP)
+            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                return endpoint; // gunakan path relatif agar otomatis sesuai host & port aktif
+            }
+            // Fallback jika dibuka langsung sebagai file HTML lokal (file:///)
+            return 'http://127.0.0.1:8000' + endpoint;
+        }
+
+        // Live WebSocket Bridge langsung ke broker.hivemq.com
+        function connectHiveMQWebSocket() {
+            try {
+                if (typeof Paho === 'undefined' || !Paho.MQTT) {
+                    console.warn("[MQTT WS] Library Paho MQTT tidak tersedia, mengandalkan REST API polling.");
+                    return;
+                }
+                const clientId = "vanguard_dash_" + Math.random().toString(16).substring(2, 8);
+                const useSSL = (window.location.protocol === 'https:');
+                const port = useSSL ? 8884 : 8000;
+
+                mqttWSClient = new Paho.MQTT.Client("broker.hivemq.com", Number(port), "/mqtt", clientId);
+
+                mqttWSClient.onConnectionLost = function(resp) {
+                    if (resp.errorCode !== 0) {
+                        console.warn("[MQTT WS] Terputus:", resp.errorMessage);
+                        setTimeout(connectHiveMQWebSocket, 5000);
+                    }
+                };
+
+                mqttWSClient.onMessageArrived = function(message) {
+                    try {
+                        const payload = JSON.parse(message.payloadString);
+                        isRealDataConnected = true;
+                        if (telemetryLoopTimer) {
+                            clearInterval(telemetryLoopTimer);
+                            telemetryLoopTimer = null;
+                        }
+                        window.updateDashboardFromAPI(payload);
+                    } catch(e) {
+                        console.error("[MQTT WS] Gagal parse JSON:", e);
+                    }
+                };
+
+                mqttWSClient.connect({
+                    timeout: 5,
+                    useSSL: useSSL,
+                    onSuccess: function() {
+                        console.log(`✅ [MQTT WS] Terhubung ke HiveMQ WebSocket (Port ${port})`);
+                        mqttWSClient.subscribe("testarossas_vanguard/fire/karhutla/telemetry");
+                        document.getElementById('packet-counter-label').textContent = "Terhubung Live • HiveMQ WebSocket";
+                    },
+                    onFailure: function(err) {
+                        console.warn("[MQTT WS] Koneksi gagal (fallback REST API):", err);
+                    }
+                });
+            } catch(e) {
+                console.warn("[MQTT WS] Gagal inisialisasi WebSocket:", e);
+            }
+        }
+
         function startTelemetryLoop() {
-            setInterval(() => {
-                if (currentMode !== 'AUTO') return;
+            if (isRealDataConnected || telemetryLoopTimer) return;
+            telemetryLoopTimer = setInterval(() => {
+                if (currentMode !== 'AUTO' || isRealDataConnected) return;
 
                 let base = { ...currentPayload };
                 base.temperature = Math.max(24, Math.min(44, base.temperature + (Math.random() - 0.48) * 0.7));
@@ -1376,26 +1444,39 @@
         }
 
         async function autoCheckBackend() {
+            const url = getApiUrl('/api/telemetry/latest');
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/telemetry/latest', { cache: 'no-store' });
+                const res = await fetch(url, { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
+                    isRealDataConnected = true;
+                    if (telemetryLoopTimer) {
+                        clearInterval(telemetryLoopTimer);
+                        telemetryLoopTimer = null;
+                    }
                     window.updateDashboardFromAPI(data);
                     setInterval(async () => {
                         if (currentMode === 'AUTO') {
                             try {
-                                const r = await fetch('http://127.0.0.1:8000/api/telemetry/latest', { cache: 'no-store' });
+                                const r = await fetch(url, { cache: 'no-store' });
                                 if (r.ok) {
                                     const d = await r.json();
+                                    isRealDataConnected = true;
                                     window.updateDashboardFromAPI(d);
                                 }
                             } catch(e) {}
                         }
-                    }, 3000);
+                    }, 2500);
                     return;
                 }
             } catch(e) {
-                startTelemetryLoop();
+                console.warn("Backend REST API tidak dapat dijangkau di " + url + ".");
+                // Jika belum menerima data riil dari MQTT WS, jalankan simulasi lokal
+                setTimeout(() => {
+                    if (!isRealDataConnected && currentMode === 'AUTO') {
+                        startTelemetryLoop();
+                    }
+                }, 4000);
             }
         }
 
@@ -1420,6 +1501,7 @@
             initMaps();
             window.updateDashboardFromAPI(currentPayload);
             autoCheckBackend();
+            connectHiveMQWebSocket();
         };
     </script>
 </body>

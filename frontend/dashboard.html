@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karhutla Monitoring • Vanguard</title>
+    <title>Karhutla Vanguard • IoT Peatland Early Warning</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,6 +19,10 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Leaflet.js CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -28,24 +32,22 @@
                         mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
-                        canvas: '#0E1013',
-                        surface: '#15181C',
-                        'surface-subtle': '#1B1F24',
-                        'surface-card': '#1E2228',
-                        'surface-border': '#262B32',
-                        lime: {
-                            accent: '#D4FF32',
-                            dim: '#B6E025',
-                            glow: 'rgba(212, 255, 50, 0.25)',
+                        obsidian: {
+                            DEFAULT: '#0A0A0C',
+                            surface: '#111114',
+                            card: '#16161A',
+                            hover: '#1C1C21',
+                            border: 'rgba(255, 255, 255, 0.07)',
                         },
-                        violet: {
-                            accent: '#7B61FF',
-                            soft: '#9E8CFF',
-                            bg: 'rgba(123, 97, 255, 0.15)',
+                        flame: {
+                            500: '#FF5500',
+                            600: '#FF7700',
+                            glow: 'rgba(255, 85, 0, 0.28)',
                         },
-                        coral: {
-                            accent: '#FF7A45',
-                            soft: '#FFA375',
+                        status: {
+                            normal: '#10B981',
+                            warning: '#F59E0B',
+                            danger: '#EF4444',
                         }
                     }
                 }
@@ -54,628 +56,681 @@
     </script>
 
     <style>
-        /* Base Canvas & Reset */
+        /* Base Canvas & Edge-to-Edge Reset */
         * {
             box-sizing: border-box;
             -webkit-font-smoothing: antialiased;
         }
 
-        body {
-            background-color: #0E1013;
-            color: #F3F4F6;
-            min-height: 100vh;
-        }
-
-        /* Bento Card Base */
-        .bento-card {
-            background: #171A1F;
-            border: 1px solid #232830;
-            border-radius: 24px;
-            transition: border-color 0.2s ease, transform 0.2s ease;
-        }
-        .bento-card:hover {
-            border-color: #2F3642;
-        }
-
-        /* Neon Lime Hero Card */
-        .bento-hero-lime {
-            background: #D4FF32;
-            color: #0B0E05;
-            border-radius: 24px;
-            position: relative;
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
             overflow: hidden;
-            box-shadow: 0 12px 36px -8px rgba(212, 255, 50, 0.35);
+            background-color: #0A0A0C;
+            color: #F3F4F6;
         }
 
-        /* Radial Rings for Lime Card (matching reference) */
-        .bento-hero-lime::before {
-            content: '';
-            position: absolute;
-            top: -20%;
-            left: -15%;
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            border: 16px solid rgba(0, 0, 0, 0.05);
-            pointer-events: none;
+        /* Card Surface */
+        .f-card {
+            background-color: #16161A;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 18px;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
         }
-        .bento-hero-lime::after {
-            content: '';
-            position: absolute;
-            top: -35%;
-            left: -25%;
-            width: 250px;
-            height: 250px;
-            border-radius: 50%;
-            border: 24px solid rgba(0, 0, 0, 0.03);
-            pointer-events: none;
+        .f-card:hover {
+            border-color: rgba(255, 255, 255, 0.14);
         }
 
-        /* Interactive Pill Buttons */
-        .nav-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 14px;
+        /* Fintrixity Orange Gradient Card (style-color.jpe) */
+        .f-card-orange {
+            background: linear-gradient(135deg, #FF5500 0%, #FF3E00 48%, #FF7700 100%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 18px;
+            box-shadow: 0 12px 32px -8px rgba(255, 85, 0, 0.45);
+            transition: all 0.2s ease;
+        }
+        .f-card-orange:hover {
+            box-shadow: 0 16px 36px -6px rgba(255, 85, 0, 0.55);
+            transform: translateY(-1px);
+        }
+
+        /* Sidebar Navigation Item (Metallic Embossed Pill matching style.png reference) */
+        .nav-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            background: #171A1F;
-            border: 1px solid #232830;
-            color: #9CA3AF;
-            transition: all 0.2s ease;
-        }
-        .nav-btn:hover {
-            color: #FFFFFF;
-            background: #1E2228;
-            border-color: #374151;
-        }
-        .nav-btn.active {
-            background: #D4FF32;
-            color: #0E1013;
-            border-color: #D4FF32;
-            box-shadow: 0 0 16px rgba(212, 255, 50, 0.35);
-        }
-
-        /* Quick Scenario Pill */
-        .scenario-pill {
-            padding: 8px 16px;
-            border-radius: 9999px;
-            font-size: 13px;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13.5px;
             font-weight: 600;
-            background: #1E2228;
-            color: #9CA3AF;
-            border: 1px solid #282E37;
-            transition: all 0.2s ease;
+            color: #8F95A3;
+            transition: all 0.15s ease;
+            position: relative;
         }
-        .scenario-pill:hover {
+        .nav-item:hover {
             color: #F3F4F6;
-            border-color: #3F4756;
+            background-color: rgba(255, 255, 255, 0.05);
         }
-        .scenario-pill.active {
-            background: #272C34;
+        .nav-item.active {
             color: #FFFFFF;
-            border-color: #4B5563;
+            background: linear-gradient(180deg, #38393F 0%, #25262C 52%, #17181C 100%);
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-top: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow:
+                0 4px 16px rgba(0, 0, 0, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        }
+        .nav-item.active i {
+            color: #FFFFFF;
         }
 
-        /* Status Dot Glow */
-        .status-dot-normal {
-            background-color: #D4FF32;
-            box-shadow: 0 0 14px #D4FF32;
+        /* Custom Dropdown Selection */
+        .custom-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 256 256'%3E%3Cpath fill='%239CA3AF' d='M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 38px;
         }
-        .status-dot-warning {
-            background-color: #FBBF24;
-            box-shadow: 0 0 14px #FBBF24;
+
+        .leaflet-container {
+            background-color: #0A0A0C !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
         }
-        .status-dot-danger {
-            background-color: #EF4444;
-            box-shadow: 0 0 18px #EF4444;
-            animation: pulseAlert 0.8s infinite alternate;
+
+        /* Marker Pulse Animation for Danger */
+        .danger-pulse {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+            animation: pulseMarker 1.4s infinite;
         }
-        @keyframes pulseAlert {
-            0% { transform: scale(1); opacity: 0.9; }
-            100% { transform: scale(1.25); opacity: 1; }
+        @keyframes pulseMarker {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.75);
+            }
+            70% {
+                box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        /* Custom Leaflet Pop-up Overrides (Matching Prompt Spec exactly) */
+        .leaflet-popup-content-wrapper {
+            background: #16161A !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 16px !important;
+            padding: 0 !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
+            color: #F3F4F6 !important;
+        }
+        .leaflet-popup-content {
+            margin: 0 !important;
+            line-height: 1.4 !important;
+        }
+        .leaflet-popup-tip {
+            background: #16161A !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
         }
 
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
         }
         ::-webkit-scrollbar-track {
-            background: #0E1013;
+            background: #0A0A0C;
         }
         ::-webkit-scrollbar-thumb {
-            background: #242932;
+            background: #23232A;
             border-radius: 9999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #343B47;
+            background: #363640;
         }
     </style>
 </head>
-<body class="p-3 sm:p-5 lg:p-7 flex items-center justify-center">
+<body class="flex flex-row select-none">
 
-    <!-- MAIN DASHBOARD WRAPPER (Neo-Bento Dark Shell) -->
-    <div class="w-full max-w-[1520px] bg-[#121418] rounded-[32px] border border-[#1E2228] p-4 sm:p-6 lg:p-7 flex flex-col gap-6 shadow-2xl">
-
-        <!-- ================= 1. TOP BAR ================= -->
-        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#1E232B]">
-            <!-- Brand & Node Status -->
-            <div class="flex items-center gap-3.5">
-                <!-- Lime Lightning / Flame Brand Mark -->
-                <div class="w-11 h-11 rounded-2xl bg-lime-accent flex items-center justify-center text-[#0E1013] font-black text-xl shadow-lg shadow-lime-glow">
+    <!-- ================= 1. LEFT SIDEBAR (FULL HEIGHT EDGE-TO-EDGE) ================= -->
+    <aside class="w-[240px] xl:w-[260px] h-screen bg-[#0A0A0C] border-r border-[rgba(255,255,255,0.07)] flex flex-col justify-between flex-shrink-0 z-20">
+        <div class="p-5">
+            <!-- Brand / Logo (Orange Gradient matching Fintrixity style) -->
+            <div class="flex items-center gap-3 mb-8 px-1">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6600] via-[#FF4500] to-[#FF8800] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-flame-glow flex-shrink-0">
                     <i class="ph-bold ph-lightning"></i>
                 </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-extrabold tracking-tight text-white">Karhutla Vanguard</h1>
-                        <span id="node-online-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-[#1B2215] text-lime-dim border border-lime-dim/20 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-lime-accent animate-pulse"></span>
-                            <span id="header-device-id">ESP32_FIRE_NODE_01</span>
-                        </span>
-                    </div>
-                    <p class="text-xs text-gray-400">Peringatan Dini Kebakaran Gambut • Univ. Ahmad Dahlan</p>
+                <div class="overflow-hidden">
+                    <h1 class="text-base font-extrabold tracking-tight text-white leading-tight">Karhutla Vanguard</h1>
+                    <p class="text-[11px] text-gray-400 font-medium tracking-wide truncate">Monitoring IoT Gambut</p>
                 </div>
             </div>
 
-            <!-- Global Action Bar -->
-            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                <!-- Test Case Quick Switcher -->
-                <div class="flex items-center bg-[#171A1F] p-1 rounded-2xl border border-[#232830]">
-                    <button onclick="applyScenario('AUTO')" id="pill-AUTO" class="scenario-pill active text-xs">Auto Live</button>
-                    <button onclick="applyScenario('TC01')" id="pill-TC01" class="scenario-pill text-xs">TC-01</button>
-                    <button onclick="applyScenario('TC02')" id="pill-TC02" class="scenario-pill text-xs">TC-02</button>
-                    <button onclick="applyScenario('TC03')" id="pill-TC03" class="scenario-pill text-xs">TC-03</button>
-                </div>
-
-                <!-- API / JSON Modal Trigger -->
-                <button onclick="openApiModal()" class="scenario-pill flex items-center gap-1.5 text-xs">
-                    <i class="ph-bold ph-brackets-curly text-lime-accent"></i>
-                    <span>Payload</span>
+            <!-- Main Navigation (Hanya 2 Menu Saja) -->
+            <nav class="space-y-1.5">
+                <button onclick="switchView('dashboard')" id="nav-btn-dashboard" class="nav-item active w-full text-left">
+                    <i class="ph-bold ph-squares-four text-xl"></i>
+                    <span>Dashboard</span>
                 </button>
-
-                <!-- GPIO Pinout Modal Trigger -->
-                <button onclick="openPinoutModal()" class="scenario-pill flex items-center gap-1.5 text-xs">
-                    <i class="ph-bold ph-cpu text-violet-soft"></i>
-                    <span>Pinout</span>
+                <button onclick="switchView('map')" id="nav-btn-map" class="nav-item w-full text-left">
+                    <i class="ph-bold ph-map-trifold text-xl"></i>
+                    <span>Map Monitoring</span>
                 </button>
+            </nav>
+        </div>
+    </aside>
 
-                <!-- Audio Alarm Toggle -->
-                <button onclick="toggleAudioMute()" id="btn-audio" title="Mute/Unmute Alarm Suara" class="nav-btn">
-                    <i id="audio-icon" class="ph-fill ph-speaker-high text-lg"></i>
-                </button>
-            </div>
-        </header>
+    <!-- ================= 2. MAIN CONTENT AREA (EDGE-TO-EDGE) ================= -->
+    <main class="flex-1 h-screen overflow-hidden flex flex-col bg-[#0A0A0C]">
 
-        <!-- ================= 2. BENTO ROW 1: 4 TOP KPI CARDS ================= -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- ================= VIEW 1: DASHBOARD (MENTAHAN1.PNG) ================= -->
+        <div id="view-dashboard" class="flex-1 h-full overflow-y-auto p-5 xl:p-6 flex flex-col gap-5">
 
-            <!-- Card 1 (HERO LIME): Evaluasi Status Utama -->
-            <div class="bento-hero-lime p-5 sm:p-6 flex flex-col justify-between min-h-[170px]">
-                <div class="flex items-center justify-between z-10">
-                    <div class="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center text-[#0B0E05]">
-                        <i id="hero-status-icon" class="ph-fill ph-shield-check text-2xl"></i>
+            <!-- Top Header & Test Case Dropdown -->
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6600] via-[#FF4500] to-[#FF8800] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-flame-glow flex-shrink-0">
+                        <i class="ph-bold ph-lightning"></i>
                     </div>
-                    <span id="hero-badge" class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-black/15 text-[#0B0E05] tracking-wide uppercase">
-                        NORMAL
-                    </span>
-                </div>
-
-                <div class="z-10 mt-4">
-                    <div class="flex items-baseline gap-2">
-                        <span class="text-3xl sm:text-4xl font-extrabold tracking-tight" id="hero-status-title">NORMAL</span>
-                    </div>
-                    <p class="text-xs font-medium text-[#0B0E05]/85 mt-1 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-[#0B0E05] inline-block"></span>
-                        <span id="hero-status-subtitle">Kondisi hutan &amp; lahan terkendali</span>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Card 2: Suhu Udara (DHT22) -->
-            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-gray-400">Suhu Udara (DHT22)</span>
-                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-lime-accent">
-                        <i class="ph-bold ph-thermometer text-base"></i>
-                    </div>
-                </div>
-
-                <div class="my-3">
-                    <div class="flex items-baseline gap-1.5">
-                        <span id="val-temp" class="text-3xl font-extrabold font-mono text-white">25.4</span>
-                        <span class="text-sm font-semibold text-gray-400">°C</span>
-                    </div>
-                    <p id="label-temp-state" class="text-xs text-gray-400 mt-1">Normal (&lt;30°C)</p>
-                </div>
-
-                <!-- Mini Bar Sparkline -->
-                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
-                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
-                        <div id="bar-temp" class="bg-lime-accent h-full rounded-full transition-all duration-300" style="width: 45%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card 3: Kelembapan Tanah Gambut (Kapasitif) -->
-            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-gray-400">Kadar Air Gambut (Soil)</span>
-                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-violet-soft">
-                        <i class="ph-bold ph-drop text-base"></i>
-                    </div>
-                </div>
-
-                <div class="my-3">
-                    <div class="flex items-baseline gap-1.5">
-                        <span id="val-soil" class="text-3xl font-extrabold font-mono text-white">62.0</span>
-                        <span class="text-sm font-semibold text-gray-400">%</span>
-                    </div>
-                    <p id="label-soil-state" class="text-xs text-gray-400 mt-1">Lembap Aman (&gt;35%)</p>
-                </div>
-
-                <!-- Mini Bar Sparkline -->
-                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
-                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
-                        <div id="bar-soil" class="bg-violet-accent h-full rounded-full transition-all duration-300" style="width: 62%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card 4: MQ-2 Asap & Gas Smoldering -->
-            <div class="bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-gray-400">Gas &amp; Asap (MQ-2)</span>
-                    <div class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-coral-accent">
-                        <i class="ph-bold ph-wind text-base"></i>
-                    </div>
-                </div>
-
-                <div class="my-3">
-                    <div class="flex items-baseline gap-1.5">
-                        <span id="val-smoke" class="text-3xl font-extrabold font-mono text-white">45</span>
-                        <span class="text-sm font-semibold text-gray-400">PPM</span>
-                    </div>
-                    <p id="label-smoke-state" class="text-xs text-gray-400 mt-1">Bebas Emisi (&lt;95 PPM)</p>
-                </div>
-
-                <!-- Mini Bar Sparkline -->
-                <div class="flex items-end gap-1.5 h-6 w-full pt-1">
-                    <div class="w-full bg-[#20252D] rounded-full h-2 overflow-hidden">
-                        <div id="bar-smoke" class="bg-coral-accent h-full rounded-full transition-all duration-300" style="width: 15%;"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================= 3. BENTO ROW 2: TELEMETRY STREAM & HARDWARE ACTUATORS ================= -->
-        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-            <!-- Chart Stream: Real-Time Multivariate (Cols 8) -->
-            <div class="lg:col-span-8 bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
-                        <h2 class="text-base font-bold text-white">Tren Telemetri Real-Time</h2>
-                        <p class="text-xs text-gray-400">Pemantauan simultan suhu udara, kelembapan tanah, dan gas MQ-2</p>
-                    </div>
-
-                    <!-- Clean Series Legend -->
-                    <div class="flex items-center gap-3 text-xs font-medium">
-                        <div class="flex items-center gap-1.5 text-lime-dim">
-                            <span class="w-2.5 h-2.5 rounded-full bg-lime-accent"></span>
-                            <span>Suhu (°C)</span>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-xl xl:text-2xl font-black text-white tracking-tight">Overview Monitoring IoT</h2>
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-[#1F1710] text-flame-500 border border-flame-500/25 flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-flame-500 animate-pulse"></span>
+                                <span id="header-device-id">ESP32_FIRE_NODE_01</span>
+                            </span>
                         </div>
-                        <div class="flex items-center gap-1.5 text-violet-soft">
-                            <span class="w-2.5 h-2.5 rounded-full bg-violet-accent"></span>
-                            <span>Gambut (%)</span>
-                        </div>
-                        <div class="flex items-center gap-1.5 text-coral-soft">
-                            <span class="w-2.5 h-2.5 rounded-full bg-coral-accent"></span>
-                            <span>Asap (PPM/5)</span>
-                        </div>
+                        <p class="text-xs text-gray-400 mt-0.5">Pemantauan data multivariat pemicu kebakaran &amp; aktuator siaga</p>
                     </div>
                 </div>
 
-                <!-- Canvas Height 220px Clean -->
-                <div class="w-full h-[220px]">
-                    <canvas id="telemetryChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Hardware & Actuator State (Cols 4) -->
-            <div class="lg:col-span-4 bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-2">
-                    <div>
-                        <h2 class="text-base font-bold text-white">Aktuator Lokal</h2>
-                        <p class="text-xs text-gray-400">Status Pin GPIO ESP32 DevKit V1</p>
+                <!-- 1 Komponen Dropdown Skenario Uji (Sesuai Spesifikasi Prompt) -->
+                <div class="flex items-center gap-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <label for="scenario-dropdown" class="text-xs font-semibold text-gray-400 whitespace-nowrap">Simulasi Skenario Pengujian (Test Case):</label>
+                        <select id="scenario-dropdown" onchange="handleDropdownScenario(this.value)" class="custom-select bg-[#16161A] border border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.22)] rounded-xl px-4 py-2 text-xs font-semibold text-white focus:outline-none focus:border-flame-500 transition cursor-pointer min-w-[280px]">
+                            <option value="AUTO">📡 Mode Live / Otomatis — (Data Sensor Real-Time)</option>
+                            <option value="TC01">🟢 Skenario Uji TC-01: Kondisi Normal — (Suhu ~25°C, Tanah Basah, Tanpa Asap)</option>
+                            <option value="TC02">🟡 Skenario Uji TC-02: Peringatan Awal / Warning — (Suhu ~32°C, Gambut Mengering)</option>
+                            <option value="TC03">🔴 Skenario Uji TC-03: Kondisi Kritis / Danger — (Suhu >40°C, Tanah Kering, Asap Pekat)</option>
+                        </select>
                     </div>
-                    <button onclick="testBuzzerBeep()" class="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[#20252C] hover:bg-[#282F38] text-gray-300 border border-[#2B323D] transition flex items-center gap-1">
-                        <i class="ph-bold ph-bell-ringing"></i>
-                        <span>Tes Alarm</span>
+
+                    <!-- Mute / Unmute Buzzer -->
+                    <button onclick="toggleAudioMute()" id="btn-audio-mute" title="Bunyikan/Matikan Alarm Suara" class="w-9 h-9 rounded-xl bg-[#16161A] border border-[rgba(255,255,255,0.09)] flex items-center justify-center text-gray-400 hover:text-white transition flex-shrink-0">
+                        <i id="audio-icon" class="ph-fill ph-speaker-high text-base text-gray-300"></i>
                     </button>
                 </div>
+            </header>
 
-                <!-- 4 Actuator Indicators -->
-                <div class="grid grid-cols-2 gap-3 my-3">
-                    <!-- LED Hijau (GPIO 18) -->
-                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
-                        <div id="led-green-dot" class="w-4 h-4 rounded-full status-dot-normal transition-all"></div>
-                        <div>
-                            <span class="text-xs font-bold text-white block">LED Hijau</span>
-                            <span class="text-[10px] font-mono text-gray-400">GPIO 18 • Normal</span>
+            <!-- ROW 1: 4 KOTAK KPI METRIC CARDS (STYLE-COLOR.JPE FINTRIXITY) -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                <!-- Card 1 (ORANGE GRADIENT HERO CARD - FINTRIXITY STYLE) -->
+                <div id="hero-gradient-card" class="f-card-orange p-5 flex flex-col justify-between min-h-[190px]">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold">
+                                <i id="hero-status-icon" class="ph-bold ph-shield-check text-lg"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-white/95 block leading-tight">Evaluasi Karhutla</span>
+                                <span class="text-[10px] text-white/75 font-medium">Monitoring Real-Time</span>
+                            </div>
                         </div>
+                        <i class="ph-bold ph-dots-three text-lg text-white/80"></i>
                     </div>
 
-                    <!-- LED Kuning (GPIO 19) -->
-                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
-                        <div id="led-yellow-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all"></div>
-                        <div>
-                            <span class="text-xs font-bold text-white block">LED Kuning</span>
-                            <span class="text-[10px] font-mono text-gray-400">GPIO 19 • Warning</span>
-                        </div>
+                    <div class="my-2">
+                        <h3 id="hero-status-title" class="text-2xl font-black text-white tracking-tight leading-none">STATUS: NORMAL</h3>
+                        <p id="hero-status-subtitle" class="text-xs text-white/85 font-medium mt-1">Kondisi Gambut Aman Terkendali</p>
                     </div>
 
-                    <!-- LED Merah (GPIO 21) -->
-                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
-                        <div id="led-red-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all"></div>
-                        <div>
-                            <span class="text-xs font-bold text-white block">LED Merah</span>
-                            <span class="text-[10px] font-mono text-gray-400">GPIO 21 • Danger</span>
-                        </div>
-                    </div>
-
-                    <!-- Buzzer (GPIO 22) -->
-                    <div class="p-3.5 rounded-2xl bg-[#1C2026] border border-[#272D36] flex items-center gap-3">
-                        <div id="buzzer-dot" class="w-4 h-4 rounded-full bg-gray-600 transition-all flex items-center justify-center"></div>
-                        <div>
-                            <span class="text-xs font-bold text-white block">Buzzer</span>
-                            <span class="text-[10px] font-mono text-gray-400">GPIO 22 • Sirene</span>
-                        </div>
+                    <!-- Bottom Frosted Pill (Exact match to "My balance" see details pill in style-color.jpe) -->
+                    <div class="bg-white/15 backdrop-blur-sm rounded-xl px-3 py-1.5 flex items-center justify-between text-xs text-white font-semibold cursor-pointer hover:bg-white/25 transition">
+                        <span>Indeks Risiko: <b id="hero-risk-val" class="font-mono">15%</b></span>
+                        <i class="ph-bold ph-arrow-right text-xs"></i>
                     </div>
                 </div>
 
-                <!-- Actuator Summary Message -->
-                <div class="p-3 rounded-2xl bg-[#13161A] border border-[#20252D] flex items-center justify-between text-xs">
-                    <span class="text-gray-400">Status Aktuator:</span>
-                    <span id="actuator-summary-label" class="font-semibold text-lime-dim flex items-center gap-1.5">
-                        <i class="ph-fill ph-check-circle"></i>
-                        Siaga Normal
-                    </span>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================= 4. BENTO ROW 3: DONUT RISK INDEX & CSV EXPORT ================= -->
-        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-            <!-- Donut Chart: Komposisi Skor Risiko (Cols 6) -->
-            <div class="lg:col-span-6 bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-2">
-                    <div>
-                        <h2 class="text-base font-bold text-white">Indeks Risiko Kebakaran</h2>
-                        <p class="text-xs text-gray-400">Formula multivariat berbobot (Temp 35%, Soil 25%, Smoke 40%)</p>
-                    </div>
-                    <span id="risk-badge" class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#1C2216] text-lime-dim border border-lime-dim/20">
-                        18%
-                    </span>
-                </div>
-
-                <div class="flex flex-col sm:flex-row items-center gap-6 my-2">
-                    <!-- Donut Canvas Container -->
-                    <div class="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
-                        <canvas id="riskDonutChart"></canvas>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span id="risk-center-val" class="text-2xl font-black font-mono text-white">18%</span>
-                            <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">RISK</span>
+                <!-- Card 2: Soil Moisture (Kadar Air Gambut) -->
+                <div class="f-card p-5 flex flex-col justify-between min-h-[190px]">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-xl bg-[#202026] flex items-center justify-center text-violet-400">
+                                <i class="ph-bold ph-drop text-base"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-400">Kadar Air Gambut</span>
                         </div>
+                        <i class="ph-bold ph-dots-three text-lg text-gray-500"></i>
                     </div>
-
-                    <!-- Breakdown Details -->
-                    <div class="space-y-2.5 flex-1 w-full text-xs">
-                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
-                            <span class="flex items-center gap-2 text-gray-300">
-                                <span class="w-2.5 h-2.5 rounded-full bg-lime-accent"></span>
-                                Suhu Udara (Bobot 35%)
-                            </span>
-                            <span id="breakdown-temp" class="font-mono font-bold text-white">18%</span>
+                    <div class="my-2">
+                        <div class="flex items-baseline gap-1">
+                            <span id="val-soil" class="text-2xl font-black font-mono text-white">68.0</span>
+                            <span class="text-xs font-semibold text-gray-400">%</span>
                         </div>
-                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
-                            <span class="flex items-center gap-2 text-gray-300">
-                                <span class="w-2.5 h-2.5 rounded-full bg-violet-accent"></span>
-                                Kekeringan Tanah (Bobot 25%)
-                            </span>
-                            <span id="breakdown-soil" class="font-mono font-bold text-white">38%</span>
+                        <span id="label-soil-state" class="text-[11px] font-medium text-status-normal block mt-0.5">Lembap Aman (&ge;35%)</span>
+                    </div>
+                    <div class="w-full bg-[#202026] h-1.5 rounded-full overflow-hidden">
+                        <div id="bar-soil" class="h-full bg-violet-500 rounded-full transition-all duration-300" style="width: 68%;"></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Gas & Asap (MQ-2) -->
+                <div class="f-card p-5 flex flex-col justify-between min-h-[190px]">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-xl bg-[#202026] flex items-center justify-center text-flame-500">
+                                <i class="ph-bold ph-wind text-base"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-400">Gas &amp; Asap (MQ-2)</span>
                         </div>
-                        <div class="flex items-center justify-between p-2 rounded-xl bg-[#1C2026]">
-                            <span class="flex items-center gap-2 text-gray-300">
-                                <span class="w-2.5 h-2.5 rounded-full bg-coral-accent"></span>
-                                Gas &amp; Smoldering (Bobot 40%)
-                            </span>
-                            <span id="breakdown-smoke" class="font-mono font-bold text-white">13%</span>
+                        <i class="ph-bold ph-dots-three text-lg text-gray-500"></i>
+                    </div>
+                    <div class="my-2">
+                        <div class="flex items-baseline gap-1">
+                            <span id="val-smoke" class="text-2xl font-black font-mono text-white">35</span>
+                            <span class="text-xs font-semibold text-gray-400">PPM</span>
                         </div>
+                        <span id="label-smoke-state" class="text-[11px] font-medium text-status-normal block mt-0.5">Bersih Bebas Asap</span>
+                    </div>
+                    <div class="w-full bg-[#202026] h-1.5 rounded-full overflow-hidden">
+                        <div id="bar-smoke" class="h-full bg-flame-500 rounded-full transition-all duration-300" style="width: 15%;"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Activity & Export Card (Cols 6) -->
-            <div class="lg:col-span-6 bento-card p-5 sm:p-6 flex flex-col justify-between">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                        <h2 class="text-base font-bold text-white">Aktivitas &amp; Logging Data</h2>
-                        <p id="packet-counter-label" class="text-xs text-gray-400">Sinkronisasi HiveMQ MQTT • Latensi ~35ms</p>
+                <!-- Card 4: Suhu & Kelembapan Udara (DHT22) -->
+                <div class="f-card p-5 flex flex-col justify-between min-h-[190px]">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-xl bg-[#202026] flex items-center justify-center text-amber-400">
+                                <i class="ph-bold ph-thermometer text-base"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-400">Suhu &amp; Kelembapan</span>
+                        </div>
+                        <i class="ph-bold ph-dots-three text-lg text-gray-500"></i>
                     </div>
-
-                    <!-- Export CSV Button (Matching reference circular icon pill) -->
-                    <button onclick="exportReportLog()" class="pl-3.5 pr-2 py-1.5 rounded-full bg-[#20252C] hover:bg-[#2A313B] border border-[#2D3440] text-xs font-semibold text-white flex items-center gap-2 transition">
-                        <span>Export CSV</span>
-                        <span class="w-6 h-6 rounded-full bg-lime-accent text-[#0E1013] flex items-center justify-center font-bold">
-                            <i class="ph-bold ph-arrow-up-right text-xs"></i>
-                        </span>
-                    </button>
-                </div>
-
-                <!-- Live Mini Activity Area Wave -->
-                <div class="w-full h-[140px]">
-                    <canvas id="miniActivityChart"></canvas>
-                </div>
-
-                <div class="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-[#232830]">
-                    <span id="last-sync-time">Sinkron: Memuat...</span>
-                    <a href="https://wokwi.com/projects/478866468495422465" target="_blank" class="hover:text-lime-dim flex items-center gap-1 transition">
-                        <span>Simulator Wokwi</span>
-                        <i class="ph-bold ph-arrow-square-out"></i>
-                    </a>
-                </div>
-            </div>
-        </section>
-
-    </div>
-
-    <!-- ================= MODAL: REST API & PAYLOAD INJECTOR ================= -->
-    <div id="api-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-        <div class="bento-card max-w-lg w-full p-6 border border-[#2D333E] shadow-2xl">
-            <div class="flex items-center justify-between pb-3 border-b border-[#232830]">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-xl bg-lime-accent text-[#0E1013] flex items-center justify-center font-bold">
-                        <i class="ph-bold ph-brackets-curly"></i>
+                    <div class="my-2">
+                        <div class="flex items-baseline gap-1">
+                            <span id="val-temp" class="text-2xl font-black font-mono text-white">25.0</span>
+                            <span class="text-xs font-semibold text-gray-400">°C</span>
+                        </div>
+                        <span id="val-hum-text" class="text-[11px] font-medium text-gray-400 block mt-0.5">Udara: 72% RH</span>
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-white">REST API &amp; JSON Injector</h3>
-                        <p class="text-xs text-gray-400">Kirim payload telemetri langsung ke Dashboard &amp; Backend</p>
+                    <div class="w-full bg-[#202026] h-1.5 rounded-full overflow-hidden">
+                        <div id="bar-temp" class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: 48%;"></div>
                     </div>
                 </div>
-                <button onclick="closeApiModal()" class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-gray-400 hover:text-white">
-                    <i class="ph-bold ph-x"></i>
-                </button>
-            </div>
 
-            <div class="space-y-4 my-4">
-                <div>
-                    <label class="text-xs font-semibold text-gray-300 block mb-1">Target Endpoint Backend REST API:</label>
-                    <div class="flex gap-2">
-                        <input id="api-endpoint-input" type="text" value="http://localhost:8000/api/telemetry/latest" class="flex-1 bg-[#13161A] border border-[#282E37] rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-lime-dim">
-                        <button onclick="connectCustomApiEndpoint()" class="px-3.5 py-2 rounded-xl bg-[#20252C] hover:bg-[#2A313C] text-xs font-semibold text-lime-dim border border-[#2E3541] transition">
-                            Koneksikan
+            </section>
+
+            <!-- ROW 2: MINI-MAP (KOTAK PROPORSIONAL) + REAL-TIME TREND CHART + HARDWARE ACTUATORS -->
+            <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+                <!-- Mini-Map Card (Lg: Col-Span 4 - KOTAK PROPORSIONAL) -->
+                <div class="lg:col-span-4 f-card p-4 xl:p-5 flex flex-col justify-between min-h-[360px]">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-flame-500 animate-pulse"></span>
+                            <h3 class="text-xs font-bold text-white uppercase tracking-wider">Peta Sebaran &amp; Lokasi</h3>
+                        </div>
+                        <button onclick="switchView('map')" class="text-xs font-semibold text-flame-500 hover:text-flame-600 flex items-center gap-1 transition">
+                            <span>Buka Penuh</span>
+                            <i class="ph-bold ph-arrow-right"></i>
                         </button>
                     </div>
+
+                    <!-- Mini-Map Canvas (Kotak Proporsional 300px) -->
+                    <div id="mini-map" class="w-full flex-1 min-h-[295px] h-[300px] rounded-xl overflow-hidden border border-[rgba(255,255,255,0.06)]"></div>
                 </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-xs font-semibold text-gray-300">Payload JSON (Bab 4 &amp; 6 Laporan):</label>
-                        <button onclick="resetSampleJson()" class="text-xs text-lime-dim hover:underline">Reset Contoh</button>
+                <!-- Chart Multi-Sensor Stream (Lg: Col-Span 5) -->
+                <div class="lg:col-span-5 f-card p-4 xl:p-5 flex flex-col justify-between min-h-[360px]">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Grafik Tren Sensor</h3>
+                            <p class="text-[11px] text-gray-400">Suhu (°C), Gambut (%), dan Asap (PPM)</p>
+                        </div>
+
+                        <!-- Legend Items -->
+                        <div class="flex items-center gap-2.5 text-[11px] font-medium">
+                            <div class="flex items-center gap-1 text-amber-300">
+                                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                                <span>Suhu</span>
+                            </div>
+                            <div class="flex items-center gap-1 text-violet-300">
+                                <span class="w-2 h-2 rounded-full bg-violet-400"></span>
+                                <span>Gambut</span>
+                            </div>
+                            <div class="flex items-center gap-1 text-flame-500">
+                                <span class="w-2 h-2 rounded-full bg-flame-500"></span>
+                                <span>Asap</span>
+                            </div>
+                        </div>
                     </div>
-                    <textarea id="custom-json-input" rows="7" class="w-full bg-[#13161A] border border-[#282E37] rounded-xl p-3 font-mono text-xs text-lime-dim focus:outline-none focus:border-lime-dim">{
-  "device_id": "ESP32_FIRE_NODE_01",
-  "temperature": 32.5,
-  "humidity": 45.0,
-  "soil_moisture": 28.0,
-  "smoke_ppm": 120,
-  "status": "Warning"
-}</textarea>
-                    <p id="json-error-msg" class="text-xs text-rose-400 mt-1 hidden"></p>
+
+                    <div class="w-full h-[290px]">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
                 </div>
-            </div>
 
-            <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#232830]">
-                <button onclick="closeApiModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white">Batal</button>
-                <button onclick="submitCustomJson()" class="px-4 py-2 rounded-xl text-xs font-bold bg-lime-accent text-[#0E1013] hover:bg-lime-dim transition shadow-md shadow-lime-glow">
-                    Kirim ke Dashboard &amp; API
-                </button>
-            </div>
-        </div>
-    </div>
+                <!-- Panel Aktuator Lokal ESP32 (Lg: Col-Span 3) -->
+                <div class="lg:col-span-3 f-card p-4 xl:p-5 flex flex-col justify-between min-h-[360px]">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Aktuator Lokal</h3>
+                            <p class="text-[11px] text-gray-400">Status Pin GPIO ESP32</p>
+                        </div>
+                        <button onclick="testBuzzerBeep()" class="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#202026] hover:bg-[#282830] text-gray-300 border border-[rgba(255,255,255,0.08)] transition flex items-center gap-1">
+                            <i class="ph-bold ph-bell-ringing"></i>
+                            <span>Tes</span>
+                        </button>
+                    </div>
 
-    <!-- ================= MODAL: ESP32 PINOUT GPIO (BAB 4 LAPORAN) ================= -->
-    <div id="pinout-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-        <div class="bento-card max-w-xl w-full p-6 border border-[#2D333E] shadow-2xl">
-            <div class="flex items-center justify-between pb-3 border-b border-[#232830]">
-                <div>
-                    <h3 class="text-base font-bold text-white">Pemetaan Pin ESP32 DevKit V1 (Bab 4 &amp; 7)</h3>
-                    <p class="text-xs text-gray-400">Jalur ADC1 aman digunakan bersama koneksi Wi-Fi</p>
+                    <!-- 4 Hardware Indicators -->
+                    <div class="grid grid-cols-2 gap-2 my-1">
+                        <!-- LED Hijau -->
+                        <div class="p-2.5 rounded-xl bg-[#1B1B20] border border-[rgba(255,255,255,0.05)] flex items-center gap-2">
+                            <div id="led-green-dot" class="w-3 h-3 rounded-full bg-status-normal shadow-[0_0_12px_#10B981] transition-all"></div>
+                            <div>
+                                <span class="text-xs font-bold text-white block leading-tight">LED Hijau</span>
+                                <span class="text-[9px] font-mono text-gray-400">GPIO 18</span>
+                            </div>
+                        </div>
+
+                        <!-- LED Kuning -->
+                        <div class="p-2.5 rounded-xl bg-[#1B1B20] border border-[rgba(255,255,255,0.05)] flex items-center gap-2">
+                            <div id="led-yellow-dot" class="w-3 h-3 rounded-full bg-gray-600 transition-all"></div>
+                            <div>
+                                <span class="text-xs font-bold text-white block leading-tight">LED Kuning</span>
+                                <span class="text-[9px] font-mono text-gray-400">GPIO 19</span>
+                            </div>
+                        </div>
+
+                        <!-- LED Merah -->
+                        <div class="p-2.5 rounded-xl bg-[#1B1B20] border border-[rgba(255,255,255,0.05)] flex items-center gap-2">
+                            <div id="led-red-dot" class="w-3 h-3 rounded-full bg-gray-600 transition-all"></div>
+                            <div>
+                                <span class="text-xs font-bold text-white block leading-tight">LED Merah</span>
+                                <span class="text-[9px] font-mono text-gray-400">GPIO 21</span>
+                            </div>
+                        </div>
+
+                        <!-- Buzzer -->
+                        <div class="p-2.5 rounded-xl bg-[#1B1B20] border border-[rgba(255,255,255,0.05)] flex items-center gap-2">
+                            <div id="buzzer-dot" class="w-3 h-3 rounded-full bg-gray-600 transition-all"></div>
+                            <div>
+                                <span class="text-xs font-bold text-white block leading-tight">Buzzer</span>
+                                <span class="text-[9px] font-mono text-gray-400">GPIO 22</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Status -->
+                    <div class="p-2.5 rounded-xl bg-[#111114] border border-[rgba(255,255,255,0.06)] flex items-center justify-between text-xs mt-2">
+                        <span class="text-gray-400">Status Aktuator:</span>
+                        <span id="actuator-summary-label" class="font-semibold text-status-normal flex items-center gap-1.5">
+                            <i class="ph-fill ph-check-circle"></i>
+                            Siaga Normal (GPIO 18)
+                        </span>
+                    </div>
                 </div>
-                <button onclick="closePinoutModal()" class="w-8 h-8 rounded-full bg-[#20252C] flex items-center justify-center text-gray-400 hover:text-white">
-                    <i class="ph-bold ph-x"></i>
-                </button>
-            </div>
 
-            <div class="overflow-x-auto my-4">
-                <table class="w-full text-left text-xs">
-                    <thead>
-                        <tr class="border-b border-[#232830] text-gray-400 font-mono">
-                            <th class="py-2 px-3">Komponen</th>
-                            <th class="py-2 px-3">Pin</th>
-                            <th class="py-2 px-3">GPIO ESP32</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-[#232830] text-gray-300">
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">Sensor DHT22</td>
-                            <td class="py-2 px-3 font-mono">DATA</td>
-                            <td class="py-2 px-3 font-mono text-lime-dim">GPIO 4</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">MQ-2 Asap/Gas</td>
-                            <td class="py-2 px-3 font-mono">AOUT</td>
-                            <td class="py-2 px-3 font-mono text-coral-soft">GPIO 34 (ADC1_CH6)</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">Soil Moisture Kapasitif</td>
-                            <td class="py-2 px-3 font-mono">AOUT</td>
-                            <td class="py-2 px-3 font-mono text-violet-soft">GPIO 35 (ADC1_CH7)</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">LED Hijau (Normal)</td>
-                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
-                            <td class="py-2 px-3 font-mono text-lime-dim">GPIO 18</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">LED Kuning (Warning)</td>
-                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
-                            <td class="py-2 px-3 font-mono text-amber-400">GPIO 19</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">LED Merah (Danger)</td>
-                            <td class="py-2 px-3 font-mono">Anoda (+)</td>
-                            <td class="py-2 px-3 font-mono text-rose-400">GPIO 21</td>
-                        </tr>
-                        <tr>
-                            <td class="py-2 px-3 font-semibold text-white">Buzzer Aktif</td>
-                            <td class="py-2 px-3 font-mono">Signal</td>
-                            <td class="py-2 px-3 font-mono text-rose-400">GPIO 22</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            </section>
 
-            <div class="flex justify-end pt-3 border-t border-[#232830]">
-                <button onclick="closePinoutModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#20252C] hover:bg-[#2A313C] text-white">Tutup</button>
-            </div>
+            <!-- ROW 3: FIRE RISK DONUT & ACTIVITY LOG -->
+            <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+                <!-- Donut Chart Indeks Risiko (Lg: Col-Span 6) -->
+                <div class="lg:col-span-6 f-card p-4 xl:p-5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Indeks Risiko Kebakaran</h3>
+                            <p class="text-[11px] text-gray-400">Formula multivariat berbobot (Temp 35%, Soil 25%, Smoke 40%)</p>
+                        </div>
+                        <span id="risk-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#14231A] text-status-normal border border-status-normal/20">
+                            15%
+                        </span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center gap-5 my-1">
+                        <div class="relative w-32 h-32 flex-shrink-0 flex items-center justify-center">
+                            <canvas id="riskDonutChart"></canvas>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span id="risk-center-val" class="text-2xl font-black font-mono text-white">15%</span>
+                                <span class="text-[9px] font-bold text-gray-400 tracking-wider">RISK</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 flex-1 w-full text-xs">
+                            <div class="flex items-center justify-between p-2 rounded-xl bg-[#1B1B20]">
+                                <span class="flex items-center gap-2 text-gray-300">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                                    Suhu Udara (35%)
+                                </span>
+                                <span id="breakdown-temp" class="font-mono font-bold text-white">17%</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-xl bg-[#1B1B20]">
+                                <span class="flex items-center gap-2 text-gray-300">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-violet-400"></span>
+                                    Kekeringan Gambut (25%)
+                                </span>
+                                <span id="breakdown-soil" class="font-mono font-bold text-white">32%</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-xl bg-[#1B1B20]">
+                                <span class="flex items-center gap-2 text-gray-300">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-flame-500"></span>
+                                    Gas &amp; Asap MQ-2 (40%)
+                                </span>
+                                <span id="breakdown-smoke" class="font-mono font-bold text-white">10%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Wave & Export CSV (Lg: Col-Span 6) -->
+                <div class="lg:col-span-6 f-card p-4 xl:p-5 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Aktivitas &amp; Logging Data</h3>
+                            <p id="packet-counter-label" class="text-[11px] text-gray-400">Sinkronisasi HiveMQ MQTT • Latensi ~35ms</p>
+                        </div>
+
+                        <button onclick="exportReportLog()" class="pl-3.5 pr-2 py-1 rounded-full bg-[#202026] hover:bg-[#282830] border border-[rgba(255,255,255,0.08)] text-xs font-semibold text-white flex items-center gap-2 transition">
+                            <span>Export CSV</span>
+                            <span class="w-5 h-5 rounded-full bg-flame-500 text-white flex items-center justify-center font-bold">
+                                <i class="ph-bold ph-arrow-up-right text-xs"></i>
+                            </span>
+                        </button>
+                    </div>
+
+                    <div class="w-full h-[105px]">
+                        <canvas id="miniActivityChart"></canvas>
+                    </div>
+
+                    <div class="flex items-center justify-between text-[11px] text-gray-400 pt-2 border-t border-[rgba(255,255,255,0.06)]">
+                        <span id="last-sync-time">Sinkron: Terhubung</span>
+                        <a href="https://wokwi.com/projects/478866468495422465" target="_blank" class="hover:text-flame-500 flex items-center gap-1 transition">
+                            <span>Wokwi Simulator</span>
+                            <i class="ph-bold ph-arrow-square-out"></i>
+                        </a>
+                    </div>
+                </div>
+
+            </section>
+
         </div>
-    </div>
 
-    <!-- ================= JAVASCRIPT ENGINE & LOGIC ================= -->
+        <!-- ================= VIEW 2: MAP MONITORING (LOADSWIFT SPLIT-VIEW) ================= -->
+        <div id="view-map" class="flex-1 h-full hidden flex-row overflow-hidden">
+
+            <!-- Panel Kiri: Daftar Node IoT (Lebar 360px, Hitam Selaras Dashboard) -->
+            <aside class="w-[360px] xl:w-[380px] h-full bg-[#0A0A0C] border-r border-[rgba(255,255,255,0.07)] flex flex-col z-10 flex-shrink-0">
+                <!-- Search & Filters -->
+                <div class="p-4 border-b border-[rgba(255,255,255,0.07)] space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="ph-bold ph-map-pin text-flame-500"></i>
+                            <span>Daftar Node Lapangan</span>
+                        </h2>
+                        <span id="node-count-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-[#1E1E24] text-gray-300 border border-[rgba(255,255,255,0.06)]">
+                            7 Node Terdaftar
+                        </span>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <i class="ph-bold ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                        <input id="node-search-input" oninput="filterNodesList()" type="text" placeholder="Cari nama alat / lokasi..." class="w-full bg-[#16161A] border border-[rgba(255,255,255,0.09)] rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-flame-500 transition">
+                    </div>
+
+                    <!-- Filter Status Buttons (Selected state: Orange Gradient + Black Font) -->
+                    <div class="grid grid-cols-4 gap-1.5 p-1 bg-[#16161A] rounded-xl border border-[rgba(255,255,255,0.06)]">
+                        <button onclick="setMapFilter('ALL')" id="filter-btn-ALL" class="py-1.5 text-[11px] font-black rounded-lg transition shadow-md shadow-flame-glow" style="background: linear-gradient(135deg, #FF6600 0%, #FF4500 50%, #FF8800 100%); color: #0A0A0C;">Semua</button>
+                        <button onclick="setMapFilter('Normal')" id="filter-btn-Normal" class="py-1.5 text-[11px] font-semibold rounded-lg text-gray-400 hover:text-white transition">Aman</button>
+                        <button onclick="setMapFilter('Warning')" id="filter-btn-Warning" class="py-1.5 text-[11px] font-semibold rounded-lg text-gray-400 hover:text-white transition">Waspada</button>
+                        <button onclick="setMapFilter('Danger')" id="filter-btn-Danger" class="py-1.5 text-[11px] font-semibold rounded-lg text-gray-400 hover:text-white transition">Bahaya</button>
+                    </div>
+                </div>
+
+                <!-- Node Items List Scrollable -->
+                <div id="nodes-list-container" class="flex-1 overflow-y-auto p-3 space-y-2.5">
+                    <!-- Cards will be populated by JS -->
+                </div>
+            </aside>
+
+            <!-- Panel Kanan: Interactive Full-Screen Leaflet Map -->
+            <section class="flex-1 h-full relative z-0">
+                <div id="full-map" class="w-full h-full"></div>
+
+                <!-- Floating Map Controls / Reset Zoom Button -->
+                <div class="absolute bottom-5 right-5 z-[1000] flex items-center gap-2 bg-[#16161A] border border-[rgba(255,255,255,0.12)] p-1.5 rounded-xl shadow-2xl">
+                    <button onclick="resetMapBounds()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#202026] hover:bg-[#282832] text-white flex items-center gap-1.5 transition">
+                        <i class="ph-bold ph-crosshair"></i>
+                        <span>Fokus Sebaran Nasional</span>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- ================= JAVASCRIPT ENGINE & ARCHITECTURE ================= -->
     <script>
-        // State Management
-        let currentMode = 'AUTO'; // 'AUTO', 'TC01', 'TC02', 'TC03', 'CUSTOM_API'
-        let packetCount = 28;
-        let audioMuted = false;
-        let customApiTimer = null;
+        // ── 1. GLOBAL STATE ──
+        let currentView = 'dashboard'; // 'dashboard' or 'map'
+        let currentMode = 'AUTO';      // 'AUTO', 'TC01', 'TC02', 'TC03'
+        let audioMuted  = false;
+        let activeFilter= 'ALL';
+        let selectedNodeId = "ESP32_FIRE_NODE_01";
+        let packetCount = 42;
         let telemetryHistory = [];
 
-        // Telemetry payload
+        // Active Telemetry Payload (Synchronized)
         let currentPayload = {
             device_id: "ESP32_FIRE_NODE_01",
-            temperature: 25.4,
-            humidity: 68.0,
-            soil_moisture: 62.0,
-            smoke_ppm: 45,
+            temperature: 25.0,
+            humidity: 72.0,
+            soil_moisture: 68.0,
+            smoke_ppm: 35,
             status: "Normal"
         };
 
-        // Web Audio API Buzzer (GPIO 22)
+        // ── 2. SEED DATA TITIK IOT (6-8 NODE DI INDONESIA) ──
+        const IOT_NODES = [
+            {
+                id: "ESP32_FIRE_NODE_01",
+                name: "Node 01 — Hutan Gambut Sektor A, Palangka Raya",
+                region: "Kalimantan Tengah",
+                lat: -2.2165,
+                lng: 113.9168,
+                temp: 25.0,
+                soil: 68.0,
+                smoke: 35,
+                status: "Normal",
+                updated: "1 menit yang lalu"
+            },
+            {
+                id: "ESP32_FIRE_NODE_02",
+                name: "Node 02 — Lahan Gambut Kubu Raya, Pontianak",
+                region: "Kalimantan Barat",
+                lat: -0.1584,
+                lng: 109.4019,
+                temp: 32.5,
+                soil: 29.1,
+                smoke: 131,
+                status: "Warning",
+                updated: "3 menit yang lalu"
+            },
+            {
+                id: "ESP32_FIRE_NODE_03",
+                name: "Node 03 — Konservasi Giam Siak Kecil, Bengkalis",
+                region: "Riau",
+                lat: 1.1834,
+                lng: 101.9685,
+                temp: 42.8,
+                soil: 12.4,
+                smoke: 420,
+                status: "Danger",
+                updated: "Baru saja"
+            },
+            {
+                id: "ESP32_FIRE_NODE_04",
+                name: "Node 04 — Hutan Lindung Gambut Londerang",
+                region: "Jambi",
+                lat: -1.3328,
+                lng: 103.8569,
+                temp: 28.4,
+                soil: 64.0,
+                smoke: 48,
+                status: "Normal",
+                updated: "5 menit yang lalu"
+            },
+            {
+                id: "ESP32_FIRE_NODE_05",
+                name: "Node 05 — Suaka Margasatwa Padang Sugihan, OKI",
+                region: "Sumatera Selatan",
+                lat: -2.8512,
+                lng: 105.1245,
+                temp: 34.0,
+                soil: 31.0,
+                smoke: 155,
+                status: "Warning",
+                updated: "2 menit yang lalu"
+            },
+            {
+                id: "ESP32_FIRE_NODE_06",
+                name: "Node 06 — Lab Riset IoT, UAD Kampus 4",
+                region: "Yogyakarta",
+                lat: -7.833776,
+                lng: 110.383460,
+                temp: 26.2,
+                soil: 70.0,
+                smoke: 28,
+                status: "Normal",
+                updated: "Sekarang"
+            },
+            {
+                id: "ESP32_FIRE_NODE_07",
+                name: "Node 07 — Lahan Gambut Sebangau Sektor Selatan",
+                region: "Kalimantan Tengah",
+                lat: -2.6500,
+                lng: 113.8000,
+                temp: 43.1,
+                soil: 10.5,
+                smoke: 450,
+                status: "Danger",
+                updated: "Baru saja"
+            }
+        ];
+
+        // ── 3. WEB AUDIO API BUZZER (GPIO 22) ──
         let audioCtx = null;
-        function playBuzzerTone(duration = 200, freq = 2600) {
+        function playBuzzerTone(duration = 200, freq = 2700) {
             if (audioMuted) return;
             try {
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -689,166 +744,25 @@
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(audioCtx.currentTime + duration / 1000);
-            } catch (e) {
-                // Audio blocked before user interaction
-            }
+            } catch (e) {}
         }
 
         function testBuzzerBeep() {
-            playBuzzerTone(350, 2700);
+            playBuzzerTone(350, 2750);
         }
 
         function toggleAudioMute() {
             audioMuted = !audioMuted;
             const icon = document.getElementById('audio-icon');
-            const btn = document.getElementById('btn-audio');
             if (audioMuted) {
-                icon.className = 'ph-fill ph-speaker-slash text-rose-400';
-                btn.classList.add('border-rose-500/40');
+                icon.className = 'ph-fill ph-speaker-slash text-base text-rose-500';
             } else {
-                icon.className = 'ph-fill ph-speaker-high text-gray-300';
-                btn.classList.remove('border-rose-500/40');
+                icon.className = 'ph-fill ph-speaker-high text-base text-gray-300';
                 playBuzzerTone(100, 2400);
             }
         }
 
-        // Charts
-        let mainChart, donutChart, miniChart;
-
-        function initCharts() {
-            // 1. Multivariate Telemetry Line Chart
-            const ctxMain = document.getElementById('telemetryChart').getContext('2d');
-            const initialLabels = ['12s', '10s', '8s', '6s', '4s', 'Now'];
-
-            mainChart = new Chart(ctxMain, {
-                type: 'line',
-                data: {
-                    labels: initialLabels,
-                    datasets: [
-                        {
-                            label: 'Suhu (°C)',
-                            data: [25.0, 25.2, 25.1, 25.3, 25.4, 25.4],
-                            borderColor: '#D4FF32',
-                            backgroundColor: 'rgba(212, 255, 50, 0.08)',
-                            borderWidth: 2.2,
-                            pointRadius: 2.5,
-                            pointBackgroundColor: '#D4FF32',
-                            tension: 0.35,
-                            fill: true
-                        },
-                        {
-                            label: 'Gambut (%)',
-                            data: [64.0, 63.5, 63.0, 62.5, 62.0, 62.0],
-                            borderColor: '#7B61FF',
-                            backgroundColor: 'transparent',
-                            borderWidth: 2.2,
-                            pointRadius: 2.5,
-                            pointBackgroundColor: '#7B61FF',
-                            tension: 0.35,
-                            fill: false
-                        },
-                        {
-                            label: 'Asap (PPM/5)',
-                            data: [8.0, 8.5, 9.0, 8.8, 9.0, 9.0],
-                            borderColor: '#FF7A45',
-                            backgroundColor: 'transparent',
-                            borderWidth: 2.2,
-                            pointRadius: 2.5,
-                            pointBackgroundColor: '#FF7A45',
-                            tension: 0.35,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1E2228',
-                            titleColor: '#F3F4F6',
-                            bodyColor: '#D1D5DB',
-                            borderColor: '#2F3642',
-                            borderWidth: 1,
-                            padding: 10,
-                            bodyFont: { family: 'JetBrains Mono', size: 12 }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.03)' },
-                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
-                        }
-                    }
-                }
-            });
-
-            // 2. Risk Donut Chart (Matching reference bottom donut)
-            const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
-            donutChart = new Chart(ctxDonut, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Suhu', 'Kekeringan', 'Asap MQ-2', 'Sisa Aman'],
-                    datasets: [{
-                        data: [18, 38, 13, 31],
-                        backgroundColor: ['#D4FF32', '#7B61FF', '#FF7A45', '#20252D'],
-                        borderWidth: 0,
-                        hoverOffset: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '76%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1E2228',
-                            bodyFont: { family: 'JetBrains Mono', size: 11 }
-                        }
-                    }
-                }
-            });
-
-            // 3. Mini Activity Chart (Spline Area)
-            const ctxMini = document.getElementById('miniActivityChart').getContext('2d');
-            const gradMini = ctxMini.createLinearGradient(0, 0, 0, 120);
-            gradMini.addColorStop(0, 'rgba(212, 255, 50, 0.25)');
-            gradMini.addColorStop(1, 'rgba(212, 255, 50, 0.0)');
-
-            miniChart = new Chart(ctxMini, {
-                type: 'line',
-                data: {
-                    labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
-                    datasets: [{
-                        label: 'Risk Wave',
-                        data: [16, 18, 17, 19, 18, 17, 18, 18],
-                        borderColor: '#D4FF32',
-                        backgroundColor: gradMini,
-                        borderWidth: 2,
-                        tension: 0.45,
-                        fill: true,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false, min: 0, max: 100 }
-                    }
-                }
-            });
-        }
-
-        // Evaluation Logic (Bab 5 Laporan)
+        // ── 4. LOGIKA MULTIVARIAT & BOBOT RISIKO ──
         function evaluateRiskStatus(temp, hum, soil, smoke) {
             if (temp >= 40.0 || smoke >= 220 || (temp >= 34.0 && soil <= 22.0 && smoke >= 140)) {
                 return "Danger";
@@ -867,12 +781,396 @@
             return Math.min(100, Math.max(5, risk));
         }
 
-        // Global UI Update Hook
+        // ── 5. CHARTS INITIALIZATION ──
+        let mainChart, donutChart, miniChart;
+
+        function initCharts() {
+            // Line Chart Telemetry
+            const ctxMain = document.getElementById('telemetryChart').getContext('2d');
+            const initialLabels = ['10s', '8s', '6s', '4s', '2s', 'Now'];
+
+            mainChart = new Chart(ctxMain, {
+                type: 'line',
+                data: {
+                    labels: initialLabels,
+                    datasets: [
+                        {
+                            label: 'Suhu (°C)',
+                            data: [25.0, 25.1, 25.0, 25.2, 25.0, 25.0],
+                            borderColor: '#FBBF24',
+                            backgroundColor: 'rgba(251, 191, 36, 0.08)',
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#FBBF24',
+                            tension: 0.35,
+                            fill: true
+                        },
+                        {
+                            label: 'Gambut (%)',
+                            data: [68.0, 68.0, 67.8, 68.1, 68.0, 68.0],
+                            borderColor: '#A78BFA',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#A78BFA',
+                            tension: 0.35,
+                            fill: false
+                        },
+                        {
+                            label: 'Asap (PPM/5)',
+                            data: [7.0, 7.0, 6.8, 7.2, 7.0, 7.0],
+                            borderColor: '#FF5500',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            pointBackgroundColor: '#FF5500',
+                            tension: 0.35,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#16161A',
+                            titleColor: '#F3F4F6',
+                            bodyColor: '#D1D5DB',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 8,
+                            bodyFont: { family: 'JetBrains Mono', size: 11 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                            ticks: { color: '#6B7280', font: { family: 'JetBrains Mono', size: 10 } }
+                        }
+                    }
+                }
+            });
+
+            // Donut Chart Risk
+            const ctxDonut = document.getElementById('riskDonutChart').getContext('2d');
+            donutChart = new Chart(ctxDonut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Suhu', 'Kekeringan', 'Asap MQ-2', 'Sisa Aman'],
+                    datasets: [{
+                        data: [17, 32, 10, 41],
+                        backgroundColor: ['#FBBF24', '#A78BFA', '#FF5500', '#202026'],
+                        borderWidth: 0,
+                        hoverOffset: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '74%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Mini Wave Activity
+            const ctxMini = document.getElementById('miniActivityChart').getContext('2d');
+            const gradMini = ctxMini.createLinearGradient(0, 0, 0, 90);
+            gradMini.addColorStop(0, 'rgba(255, 85, 0, 0.28)');
+            gradMini.addColorStop(1, 'rgba(255, 85, 0, 0.0)');
+
+            miniChart = new Chart(ctxMini, {
+                type: 'line',
+                data: {
+                    labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+                    datasets: [{
+                        data: [15, 15, 16, 14, 15, 15, 15, 15],
+                        borderColor: '#FF5500',
+                        backgroundColor: gradMini,
+                        borderWidth: 1.8,
+                        tension: 0.45,
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } }
+                }
+            });
+        }
+
+        // ── 6. LEAFLET MAPS (MINI-MAP & FULL-MAP) ──
+        let miniMap = null, fullMap = null;
+        let miniMapMarker = null;
+        let fullMapMarkers = [];
+
+        function getMarkerColor(status) {
+            if (status === 'Danger') return '#EF4444';
+            if (status === 'Warning') return '#F59E0B';
+            return '#10B981';
+        }
+
+        function createCustomPin(color, isDanger = false) {
+            return L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: `<div class="w-4 h-4 rounded-full border-2 border-white ${isDanger ? 'danger-pulse' : ''}" style="background-color: ${color};"></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+                popupAnchor: [0, -10]
+            });
+        }
+
+        function createPopupHTML(node) {
+            const isDanger = node.status === 'Danger';
+            const isWarning = node.status === 'Warning';
+            const statusColor = isDanger ? '#EF4444' : (isWarning ? '#F59E0B' : '#10B981');
+            const statusLabel = isDanger ? '🔴 STATUS: BAHAYA' : (isWarning ? '🟡 STATUS: WASPADA' : '🟢 STATUS: AMAN');
+            const soilLabel = node.soil <= 22 ? `Sangat Kering (${node.soil}%)` : (node.soil < 35 ? `Mengering (${node.soil}%)` : `Lembap (${node.soil}%)`);
+            const smokeLabel = node.smoke >= 220 ? `Asap Pekat (${node.smoke} PPM)` : (node.smoke >= 95 ? `Indikasi Smoldering (${node.smoke} PPM)` : `Bersih (${node.smoke} PPM)`);
+
+            return `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; width: 260px; padding: 14px; border-radius: 16px; background: #16161A;">
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 8px;">
+                        <span style="display:inline-block; font-size: 11px; font-weight: 800; color: ${statusColor}; letter-spacing: 0.5px;">${statusLabel}</span>
+                        <h4 style="margin: 2px 0 0 0; font-size: 13px; font-weight: 700; color: #FFFFFF;">${node.name}</h4>
+                    </div>
+                    <div style="font-size: 12px; color: #D1D5DB; line-height: 1.6; margin-bottom: 10px;">
+                        <div>🌡️ <span style="color:#9CA3AF;">Suhu :</span> <b style="color:#FFF;">${node.temp}°C</b></div>
+                        <div>💧 <span style="color:#9CA3AF;">Kondisi Tanah :</span> <b style="color:#FFF;">${soilLabel}</b></div>
+                        <div>💨 <span style="color:#9CA3AF;">Indikasi Asap :</span> <b style="color:#FFF;">${smokeLabel}</b></div>
+                    </div>
+                    <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 10px; color: #6B7280;">🕒 ${node.updated}</span>
+                        <button onclick="focusNode('${node.id}')" style="background: #FF5500; color: #FFFFFF; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: none; cursor: pointer;">Fokuskan Data</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initMaps() {
+            // Google Maps Roadmap Tiles (Direct, fast, authentic Indonesian street & landmark names, no API key required)
+            const googleRoadmapUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+            const googleOptions = {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Maps'
+            };
+
+            // 1. Mini-Map di Dashboard (Fokus UAD Kampus 4 Yogyakarta sesuai referensi mentahan1.png)
+            const uadNode = IOT_NODES.find(n => n.id === "ESP32_FIRE_NODE_06") || IOT_NODES[0];
+            miniMap = L.map('mini-map', {
+                center: [uadNode.lat, uadNode.lng],
+                zoom: 16,
+                zoomControl: false,
+                attributionControl: false
+            });
+            L.tileLayer(googleRoadmapUrl, googleOptions).addTo(miniMap);
+            miniMapMarker = L.marker([uadNode.lat, uadNode.lng], {
+                icon: createCustomPin(getMarkerColor(uadNode.status), uadNode.status === 'Danger')
+            }).addTo(miniMap);
+
+            // 2. Full-Map di Tab Map Monitoring
+            fullMap = L.map('full-map', {
+                center: [-1.5, 114.5],
+                zoom: 5,
+                zoomControl: true,
+                attributionControl: false
+            });
+            L.tileLayer(googleRoadmapUrl, googleOptions).addTo(fullMap);
+
+            populateFullMapMarkers();
+            renderNodesList();
+        }
+
+        function populateFullMapMarkers() {
+            fullMapMarkers.forEach(m => fullMap.removeLayer(m));
+            fullMapMarkers = [];
+
+            IOT_NODES.forEach(node => {
+                const color = getMarkerColor(node.status);
+                const isDanger = node.status === 'Danger';
+                const marker = L.marker([node.lat, node.lng], {
+                    icon: createCustomPin(color, isDanger)
+                }).addTo(fullMap);
+
+                marker.bindPopup(createPopupHTML(node));
+                marker.nodeId = node.id;
+                fullMapMarkers.push(marker);
+            });
+        }
+
+        function renderNodesList() {
+            const container = document.getElementById('nodes-list-container');
+            const searchVal = document.getElementById('node-search-input').value.toLowerCase();
+
+            const filtered = IOT_NODES.filter(node => {
+                const matchSearch = node.name.toLowerCase().includes(searchVal) || node.region.toLowerCase().includes(searchVal);
+                const matchStatus = activeFilter === 'ALL' || node.status === activeFilter;
+                return matchSearch && matchStatus;
+            });
+
+            document.getElementById('node-count-badge').textContent = `${filtered.length} Node`;
+
+            container.innerHTML = filtered.map(node => {
+                const isSelected = (node.id === selectedNodeId);
+                const isDanger = node.status === 'Danger';
+                const isWarning = node.status === 'Warning';
+
+                if (isSelected) {
+                    return `
+                        <div onclick="selectNodeFromList('${node.id}')" class="p-3.5 rounded-xl cursor-pointer transition flex flex-col gap-2 relative overflow-hidden" style="background: linear-gradient(135deg, #FF6600 0%, #FF4500 50%, #FF8800 100%); border: 1px solid rgba(255,255,255,0.28); box-shadow: 0 8px 24px -4px rgba(255, 85, 0, 0.45);">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-black text-white truncate max-w-[200px] drop-shadow-sm">${node.name}</span>
+                                <span class="text-[10px] font-black text-[#0A0A0C] bg-white/95 px-2 py-0.5 rounded-full shadow-sm">
+                                    ${node.status === 'Danger' ? '🔴 Bahaya' : (node.status === 'Warning' ? '🟡 Waspada' : '🟢 Aman')}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-3 text-[11px] text-white/95 font-mono font-bold">
+                                <span>🌡️ ${node.temp}°C</span>
+                                <span>💧 ${node.soil}%</span>
+                                <span>💨 ${node.smoke} PPM</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const statusBadge = isDanger
+                    ? '<span class="text-[10px] font-bold text-status-danger bg-status-danger/10 px-2 py-0.5 rounded border border-status-danger/30">🔴 Bahaya</span>'
+                    : (isWarning
+                        ? '<span class="text-[10px] font-bold text-status-warning bg-status-warning/10 px-2 py-0.5 rounded border border-status-warning/30">🟡 Waspada</span>'
+                        : '<span class="text-[10px] font-bold text-status-normal bg-status-normal/10 px-2 py-0.5 rounded border border-status-normal/30">🟢 Aman</span>');
+
+                return `
+                    <div onclick="selectNodeFromList('${node.id}')" class="p-3.5 rounded-xl bg-[#16161A] hover:bg-[#1C1C22] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.18)] cursor-pointer transition flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white truncate max-w-[200px]">${node.name}</span>
+                            ${statusBadge}
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400 font-mono">
+                            <span>🌡️ ${node.temp}°C</span>
+                            <span>💧 ${node.soil}%</span>
+                            <span>💨 ${node.smoke} PPM</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterNodesList() {
+            renderNodesList();
+        }
+
+        function setMapFilter(filter) {
+            activeFilter = filter;
+            ['ALL', 'Normal', 'Warning', 'Danger'].forEach(f => {
+                const btn = document.getElementById(`filter-btn-${f}`);
+                if (btn) {
+                    if (f === filter) {
+                        btn.style.background = "linear-gradient(135deg, #FF6600 0%, #FF4500 50%, #FF8800 100%)";
+                        btn.style.color = "#0A0A0C";
+                        btn.className = "py-1.5 text-[11px] font-black rounded-lg transition shadow-md shadow-flame-glow";
+                    } else {
+                        btn.style.background = "transparent";
+                        btn.style.color = "#9CA3AF";
+                        btn.className = "py-1.5 text-[11px] font-semibold rounded-lg hover:text-white transition";
+                    }
+                }
+            });
+            renderNodesList();
+        }
+
+        function selectNodeFromList(nodeId) {
+            selectedNodeId = nodeId;
+            renderNodesList();
+
+            const node = IOT_NODES.find(n => n.id === nodeId);
+            if (!node || !fullMap) return;
+
+            fullMap.flyTo([node.lat, node.lng], 12, { duration: 1.2 });
+            const marker = fullMapMarkers.find(m => m.nodeId === nodeId);
+            if (marker) {
+                setTimeout(() => marker.openPopup(), 1300);
+            }
+        }
+
+        function focusNode(nodeId) {
+            selectedNodeId = nodeId;
+            renderNodesList();
+            const node = IOT_NODES.find(n => n.id === nodeId);
+            if (!node) return;
+
+            // Update main state to this node
+            window.updateDashboardFromAPI({
+                device_id: node.id,
+                temperature: node.temp,
+                humidity: node.status === 'Danger' ? 28.0 : (node.status === 'Warning' ? 48.0 : 72.0),
+                soil_moisture: node.soil,
+                smoke_ppm: node.smoke,
+                status: node.status
+            });
+
+            // Update mini map center
+            if (miniMap) {
+                miniMap.setView([node.lat, node.lng], 12);
+                if (miniMapMarker) {
+                    miniMapMarker.setLatLng([node.lat, node.lng]);
+                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(node.status), node.status === 'Danger'));
+                }
+            }
+
+            switchView('dashboard');
+        }
+
+        function resetMapBounds() {
+            if (!fullMap) return;
+            fullMap.flyTo([-1.2, 115.0], 5, { duration: 1.2 });
+        }
+
+        // ── 7. VIEW SWITCHER (DASHBOARD <-> MAP) ──
+        function switchView(view) {
+            currentView = view;
+            const viewDash = document.getElementById('view-dashboard');
+            const viewMap = document.getElementById('view-map');
+            const navDash = document.getElementById('nav-btn-dashboard');
+            const navMap = document.getElementById('nav-btn-map');
+
+            if (view === 'dashboard') {
+                viewDash.classList.remove('hidden');
+                viewMap.classList.add('hidden');
+                viewMap.classList.remove('flex');
+                navDash.classList.add('active');
+                navMap.classList.remove('active');
+
+                setTimeout(() => {
+                    if (miniMap) miniMap.invalidateSize();
+                }, 100);
+            } else {
+                viewDash.classList.add('hidden');
+                viewMap.classList.remove('hidden');
+                viewMap.classList.add('flex');
+                navDash.classList.remove('active');
+                navMap.classList.add('active');
+
+                setTimeout(() => {
+                    if (fullMap) fullMap.invalidateSize();
+                }, 100);
+            }
+        }
+
+        // ── 8. CORE UI UPDATE FUNCTION (FULL SYNC) ──
         window.updateDashboardFromAPI = function(payload) {
             const temp = parseFloat(payload.temperature ?? 25.0);
             const hum = parseFloat(payload.humidity ?? 65.0);
             const soil = parseFloat(payload.soil_moisture ?? 60.0);
-            const smoke = parseInt(payload.smoke_ppm ?? 40);
+            const smoke = parseInt(payload.smoke_ppm ?? 35);
             const status = payload.status || evaluateRiskStatus(temp, hum, soil, smoke);
             const deviceId = payload.device_id || "ESP32_FIRE_NODE_01";
 
@@ -885,73 +1183,62 @@
                 status: status
             };
 
-            // 1. Update Header Info
-            document.getElementById('header-device-id').textContent = deviceId;
-            packetCount++;
-            document.getElementById('packet-counter-label').textContent = `Sinkronisasi HiveMQ • ${packetCount} Paket Diterima • Latensi 32ms`;
+            // Update Primary Node in IOT_NODES table
+            const primary = IOT_NODES.find(n => n.id === deviceId);
+            if (primary) {
+                primary.temp = currentPayload.temperature;
+                primary.soil = currentPayload.soil_moisture;
+                primary.smoke = currentPayload.smoke_ppm;
+                primary.status = status;
+                primary.updated = "Baru saja";
+            }
+
+            // 1. Header Info & Sync Status
             const nowStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
-            document.getElementById('last-sync-time').textContent = `Sinkron Terakhir: ${nowStr} WIB`;
+            document.getElementById('last-sync-time').textContent = `Sinkron: ${nowStr} WIB`;
 
-            // 2. Update KPI Value & Bars
-            document.getElementById('val-temp').textContent = currentPayload.temperature.toFixed(1);
-            document.getElementById('bar-temp').style.width = `${Math.min(100, (temp / 50) * 100)}%`;
-            document.getElementById('label-temp-state').textContent = temp >= 40 ? 'Suhu Kritis (>40°C)' : (temp >= 30 ? 'Pemanasan Awal (≥30°C)' : 'Normal (<30°C)');
+            packetCount++;
+            document.getElementById('packet-counter-label').textContent = `Sinkronisasi HiveMQ • ${packetCount} Paket • Latensi 32ms`;
 
+            // 2. Sensor Values & Progress Bars
             document.getElementById('val-soil').textContent = currentPayload.soil_moisture.toFixed(1);
             document.getElementById('bar-soil').style.width = `${Math.min(100, soil)}%`;
-            document.getElementById('label-soil-state').textContent = soil <= 22 ? 'Sangat Kering (Kritis ≤22%)' : (soil < 35 ? 'Mengering (<35%)' : 'Lembap Aman (≥35%)');
+            document.getElementById('label-soil-state').textContent = soil <= 22 ? 'Sangat Kering (≤22%)' : (soil < 35 ? 'Gambut Mengering (<35%)' : 'Lembap Aman (≥35%)');
 
             document.getElementById('val-smoke').textContent = currentPayload.smoke_ppm;
-            document.getElementById('bar-smoke').style.width = `${Math.min(100, (smoke / 350) * 100)}%`;
-            document.getElementById('label-smoke-state').textContent = smoke >= 220 ? 'Asap Pekat (≥220 PPM)' : (smoke >= 95 ? 'Indikasi Smoldering' : 'Bebas Emisi (<95 PPM)');
+            document.getElementById('bar-smoke').style.width = `${Math.min(100, (smoke / 450) * 100)}%`;
+            document.getElementById('label-smoke-state').textContent = smoke >= 220 ? 'Asap Pekat (Bahaya)' : (smoke >= 95 ? 'Indikasi Smoldering' : 'Bersih Bebas Asap');
 
-            // 3. Update Hero Card (Status Utuh)
-            const heroTitle = document.getElementById('hero-status-title');
-            const heroSubtitle = document.getElementById('hero-status-subtitle');
-            const heroBadge = document.getElementById('hero-badge');
-            const heroIcon = document.getElementById('hero-status-icon');
+            document.getElementById('val-temp').textContent = currentPayload.temperature.toFixed(1);
+            document.getElementById('val-hum-text').textContent = `Udara: ${currentPayload.humidity.toFixed(0)}% RH`;
+            document.getElementById('bar-temp').style.width = `${Math.min(100, (temp / 50) * 100)}%`;
 
+            // 3. Actuator LEDs & Buzzer (GPIO 18, 19, 21, 22)
             const ledGreen = document.getElementById('led-green-dot');
             const ledYellow = document.getElementById('led-yellow-dot');
             const ledRed = document.getElementById('led-red-dot');
             const buzzerDot = document.getElementById('buzzer-dot');
             const actSummary = document.getElementById('actuator-summary-label');
 
-            // Reset Hardware LEDs
-            ledGreen.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
-            ledYellow.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
-            ledRed.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
-            buzzerDot.className = "w-4 h-4 rounded-full bg-gray-700 transition-all";
+            ledGreen.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
+            ledYellow.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
+            ledRed.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
+            buzzerDot.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
 
             if (status.toLowerCase() === 'danger') {
-                heroTitle.textContent = "DANGER";
-                heroBadge.textContent = "KONDISI KRITIS";
-                heroSubtitle.textContent = "Buzzer sirene & LED Merah aktif!";
-                heroIcon.className = "ph-fill ph-fire text-2xl animate-bounce";
-
-                ledRed.className = "w-4 h-4 rounded-full status-dot-danger transition-all";
-                buzzerDot.className = "w-4 h-4 rounded-full status-dot-danger transition-all";
-                actSummary.className = "font-semibold text-rose-400 flex items-center gap-1.5 animate-pulse";
+                ledRed.className = "w-3.5 h-3.5 rounded-full bg-status-danger shadow-[0_0_12px_#EF4444] danger-pulse transition-all";
+                buzzerDot.className = "w-3.5 h-3.5 rounded-full bg-status-danger shadow-[0_0_12px_#EF4444] transition-all";
+                actSummary.className = "font-semibold text-status-danger flex items-center gap-1.5 animate-pulse";
                 actSummary.innerHTML = `<i class="ph-fill ph-warning-octagon"></i> ALARM AKTIF (GPIO 21 &amp; 22)`;
 
                 playBuzzerTone(260, 2800);
             } else if (status.toLowerCase() === 'warning') {
-                heroTitle.textContent = "WARNING";
-                heroBadge.textContent = "WASPADA SMOLDERING";
-                heroSubtitle.textContent = "Indikasi asap/tanah gambut mengering";
-                heroIcon.className = "ph-fill ph-warning-diamond text-2xl";
-
-                ledYellow.className = "w-4 h-4 rounded-full status-dot-warning transition-all";
-                actSummary.className = "font-semibold text-amber-400 flex items-center gap-1.5";
+                ledYellow.className = "w-3.5 h-3.5 rounded-full bg-status-warning shadow-[0_0_12px_#F59E0B] transition-all";
+                actSummary.className = "font-semibold text-status-warning flex items-center gap-1.5";
                 actSummary.innerHTML = `<i class="ph-fill ph-warning"></i> LED Kuning ON (GPIO 19)`;
             } else {
-                heroTitle.textContent = "NORMAL";
-                heroBadge.textContent = "AMAN TERKENDALI";
-                heroSubtitle.textContent = "Kondisi hutan &amp; lahan terkendali";
-                heroIcon.className = "ph-fill ph-shield-check text-2xl";
-
-                ledGreen.className = "w-4 h-4 rounded-full status-dot-normal transition-all";
-                actSummary.className = "font-semibold text-lime-dim flex items-center gap-1.5";
+                ledGreen.className = "w-3.5 h-3.5 rounded-full bg-status-normal shadow-[0_0_12px_#10B981] transition-all";
+                actSummary.className = "font-semibold text-status-normal flex items-center gap-1.5";
                 actSummary.innerHTML = `<i class="ph-fill ph-check-circle"></i> Siaga Normal (GPIO 18)`;
             }
 
@@ -967,6 +1254,45 @@
             document.getElementById('breakdown-soil').textContent = `${soilScore}%`;
             document.getElementById('breakdown-smoke').textContent = `${smokeScore}%`;
 
+            // Update Fintrixity Orange Hero Card (style-color.jpe)
+            const heroCard = document.getElementById('hero-gradient-card');
+            const heroTitle = document.getElementById('hero-status-title');
+            const heroSubtitle = document.getElementById('hero-status-subtitle');
+            const heroRiskVal = document.getElementById('hero-risk-val');
+            const heroIcon = document.getElementById('hero-status-icon');
+
+            if (heroRiskVal) heroRiskVal.textContent = `${riskPct}%`;
+
+            if (heroCard && heroTitle) {
+                if (status.toLowerCase() === 'danger') {
+                    heroTitle.textContent = "STATUS: DANGER";
+                    if (heroSubtitle) heroSubtitle.textContent = "Kondisi Kritis • Api / Asap Pekat!";
+                    if (heroIcon) heroIcon.className = "ph-bold ph-warning-octagon text-lg animate-bounce";
+                    heroCard.style.background = "linear-gradient(135deg, #EF4444 0%, #DC2626 50%, #B91C1C 100%)";
+                    heroCard.style.boxShadow = "0 12px 32px -8px rgba(239, 68, 68, 0.55)";
+                } else if (status.toLowerCase() === 'warning') {
+                    heroTitle.textContent = "STATUS: WARNING";
+                    if (heroSubtitle) heroSubtitle.textContent = "Waspada Dini • Gambut Mengering";
+                    if (heroIcon) heroIcon.className = "ph-bold ph-warning text-lg";
+                    heroCard.style.background = "linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #B45309 100%)";
+                    heroCard.style.boxShadow = "0 12px 32px -8px rgba(245, 158, 11, 0.55)";
+                } else {
+                    heroTitle.textContent = "STATUS: NORMAL";
+                    if (heroSubtitle) heroSubtitle.textContent = "Kondisi Gambut Aman Terkendali";
+                    if (heroIcon) heroIcon.className = "ph-bold ph-shield-check text-lg";
+                    heroCard.style.background = "linear-gradient(135deg, #FF5500 0%, #FF3E00 48%, #FF7700 100%)";
+                    heroCard.style.boxShadow = "0 12px 32px -8px rgba(255, 85, 0, 0.45)";
+                }
+            }
+
+            if (status.toLowerCase() === 'danger') {
+                document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-danger/15 text-status-danger border border-status-danger/30";
+            } else if (status.toLowerCase() === 'warning') {
+                document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-warning/15 text-status-warning border border-status-warning/30";
+            } else {
+                document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-normal/15 text-status-normal border border-status-normal/30";
+            }
+
             if (donutChart) {
                 const remainder = Math.max(0, 100 - riskPct);
                 donutChart.data.datasets[0].data = [
@@ -978,7 +1304,7 @@
                 donutChart.update('none');
             }
 
-            // 5. Update Line & Mini Wave Charts
+            // 5. Update Real-Time Line & Activity Wave
             if (mainChart && miniChart) {
                 mainChart.data.labels.push(nowStr.slice(0, 8));
                 mainChart.data.labels.shift();
@@ -998,7 +1324,14 @@
                 miniChart.update('none');
             }
 
-            // Save log history for CSV
+            // 6. Update Map Markers
+            if (miniMapMarker) {
+                miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), status === 'Danger'));
+            }
+            populateFullMapMarkers();
+            renderNodesList();
+
+            // Append to CSV log history
             telemetryHistory.push({
                 timestamp: nowStr,
                 ...currentPayload,
@@ -1007,102 +1340,66 @@
             if (telemetryHistory.length > 100) telemetryHistory.shift();
         };
 
-        // Scenario Test Cases (Bab 11)
-        function applyScenario(mode) {
-            currentMode = mode;
-            ['AUTO', 'TC01', 'TC02', 'TC03'].forEach(id => {
-                const el = document.getElementById(`pill-${id}`);
-                if (el) el.classList.remove('active');
-            });
-            const activeEl = document.getElementById(`pill-${mode}`);
-            if (activeEl) activeEl.classList.add('active');
+        // ── 9. DROPDOWN SCENARIO HANDLER (FULL SYNC TC-01, TC-02, TC-03) ──
+        function handleDropdownScenario(val) {
+            currentMode = val;
 
-            let payload = null;
-            let controlCmd = null;
-
-            if (mode === 'TC01') {
-                payload = {
+            if (val === 'TC01') {
+                window.updateDashboardFromAPI({
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 25.0,
-                    humidity: 68.5,
-                    soil_moisture: 65.0,
-                    smoke_ppm: 40,
+                    humidity: 72.0,
+                    soil_moisture: 68.0,
+                    smoke_ppm: 35,
                     status: "Normal"
-                };
-                controlCmd = "Normal";
-            } else if (mode === 'TC02') {
-                payload = {
+                });
+            } else if (val === 'TC02') {
+                window.updateDashboardFromAPI({
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 32.5,
-                    humidity: 45.0,
-                    soil_moisture: 28.0,
-                    smoke_ppm: 120,
+                    humidity: 48.0,
+                    soil_moisture: 29.1,
+                    smoke_ppm: 131,
                     status: "Warning"
-                };
-                controlCmd = "Warning";
-            } else if (mode === 'TC03') {
-                payload = {
+                });
+            } else if (val === 'TC03') {
+                window.updateDashboardFromAPI({
                     device_id: "ESP32_FIRE_NODE_01",
                     temperature: 42.8,
-                    humidity: 29.5,
-                    soil_moisture: 16.0,
-                    smoke_ppm: 315,
+                    humidity: 28.0,
+                    soil_moisture: 12.4,
+                    smoke_ppm: 420,
                     status: "Danger"
-                };
-                controlCmd = "Danger";
-            } else if (mode === 'AUTO') {
-                fetch(`${API_BASE}/api/control`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mode: "AUTO" })
-                }).catch(() => {});
-            }
-
-            if (payload) {
-                window.updateDashboardFromAPI(payload);
-                fetch(`${API_BASE}/api/control`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: controlCmd, mode: mode })
-                }).catch(() => {});
+                });
             }
         }
 
-        // Live Simulation Loop (Jika offline tanpa backend)
+        // ── 10. BACKGROUND SIMULATION & AUTO POLL BACKEND ──
         function startTelemetryLoop() {
             setInterval(() => {
-                if (currentMode === 'CUSTOM_API') return;
+                if (currentMode !== 'AUTO') return;
 
                 let base = { ...currentPayload };
-                if (currentMode === 'AUTO') {
-                    base.temperature = Math.max(24, Math.min(44, base.temperature + (Math.random() - 0.48) * 0.8));
-                    base.humidity = Math.max(25, Math.min(85, base.humidity + (Math.random() - 0.5) * 1.5));
-                    base.soil_moisture = Math.max(12, Math.min(80, base.soil_moisture + (Math.random() - 0.5) * 1.0));
-                    base.smoke_ppm = Math.max(30, Math.min(350, Math.round(base.smoke_ppm + (Math.random() - 0.48) * 7)));
-                    base.status = evaluateRiskStatus(base.temperature, base.humidity, base.soil_moisture, base.smoke_ppm);
-                } else {
-                    // Small breathing jitter on fixed test case
-                    base.temperature = base.temperature + (Math.random() - 0.5) * 0.2;
-                }
+                base.temperature = Math.max(24, Math.min(44, base.temperature + (Math.random() - 0.48) * 0.7));
+                base.humidity = Math.max(25, Math.min(85, base.humidity + (Math.random() - 0.5) * 1.5));
+                base.soil_moisture = Math.max(12, Math.min(80, base.soil_moisture + (Math.random() - 0.5) * 1.0));
+                base.smoke_ppm = Math.max(25, Math.min(450, Math.round(base.smoke_ppm + (Math.random() - 0.48) * 8)));
+                base.status = evaluateRiskStatus(base.temperature, base.humidity, base.soil_moisture, base.smoke_ppm);
 
                 window.updateDashboardFromAPI(base);
             }, 3000);
         }
 
-        const API_BASE = (window.location.protocol.startsWith('http')) ? window.location.origin : 'http://localhost:8000';
-
-        // Auto Poll Backend API (Fallback ke mode lokal jika backend belum berjalan)
         async function autoCheckBackend() {
             try {
-                const res = await fetch(`${API_BASE}/api/telemetry/latest`, { cache: 'no-store' });
+                const res = await fetch('http://127.0.0.1:8000/api/telemetry/latest', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     window.updateDashboardFromAPI(data);
-                    // Poll tiap 3 detik
                     setInterval(async () => {
                         if (currentMode === 'AUTO') {
                             try {
-                                const r = await fetch(`${API_BASE}/api/telemetry/latest`, { cache: 'no-store' });
+                                const r = await fetch('http://127.0.0.1:8000/api/telemetry/latest', { cache: 'no-store' });
                                 if (r.ok) {
                                     const d = await r.json();
                                     window.updateDashboardFromAPI(d);
@@ -1110,88 +1407,11 @@
                             } catch(e) {}
                         }
                     }, 3000);
-                    return true;
+                    return;
                 }
             } catch(e) {
-                // Backend tidak aktif, jalankan generator lokal
                 startTelemetryLoop();
             }
-        }
-
-        // Modal Controls
-        function openApiModal() {
-            document.getElementById('api-endpoint-input').value = `${API_BASE}/api/telemetry/latest`;
-            document.getElementById('custom-json-input').value = JSON.stringify(currentPayload, null, 2);
-            document.getElementById('api-modal').classList.remove('hidden');
-            document.getElementById('api-modal').classList.add('flex');
-        }
-        function closeApiModal() {
-            document.getElementById('api-modal').classList.add('hidden');
-            document.getElementById('api-modal').classList.remove('flex');
-        }
-        function openPinoutModal() {
-            document.getElementById('pinout-modal').classList.remove('hidden');
-            document.getElementById('pinout-modal').classList.add('flex');
-        }
-        function closePinoutModal() {
-            document.getElementById('pinout-modal').classList.add('hidden');
-            document.getElementById('pinout-modal').classList.remove('flex');
-        }
-
-        function resetSampleJson() {
-            const sample = {
-                device_id: "ESP32_FIRE_NODE_01",
-                temperature: 32.5,
-                humidity: 45.0,
-                soil_moisture: 28.0,
-                smoke_ppm: 120,
-                status: "Warning"
-            };
-            document.getElementById('custom-json-input').value = JSON.stringify(sample, null, 2);
-        }
-
-        async function submitCustomJson() {
-            const raw = document.getElementById('custom-json-input').value;
-            const errEl = document.getElementById('json-error-msg');
-            try {
-                const parsed = JSON.parse(raw);
-                errEl.classList.add('hidden');
-                window.updateDashboardFromAPI(parsed);
-
-                // Coba POST ke backend jika ada
-                try {
-                    await fetch(`${API_BASE}/api/telemetry/inject`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(parsed)
-                    });
-                } catch(e) {}
-
-                closeApiModal();
-            } catch (err) {
-                errEl.textContent = "Format JSON tidak valid: " + err.message;
-                errEl.classList.remove('hidden');
-            }
-        }
-
-        function connectCustomApiEndpoint() {
-            const url = document.getElementById('api-endpoint-input').value.trim();
-            if (!url) return;
-            if (customApiTimer) clearInterval(customApiTimer);
-            currentMode = 'CUSTOM_API';
-
-            const fetchNow = async () => {
-                try {
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    window.updateDashboardFromAPI(data);
-                } catch (err) {
-                    console.warn("Gagal fetch API:", err);
-                }
-            };
-            fetchNow();
-            customApiTimer = setInterval(fetchNow, 3000);
-            closeApiModal();
         }
 
         function exportReportLog() {
@@ -1209,8 +1429,10 @@
             a.click();
         }
 
+        // Window Init
         window.onload = function() {
             initCharts();
+            initMaps();
             window.updateDashboardFromAPI(currentPayload);
             autoCheckBackend();
         };

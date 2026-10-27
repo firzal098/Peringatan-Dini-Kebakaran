@@ -577,7 +577,7 @@
                             <span>Daftar Node Lapangan</span>
                         </h2>
                         <span id="node-count-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-[#1E1E24] text-gray-300 border border-[rgba(255,255,255,0.06)]">
-                            7 Node Terdaftar
+                            1 Node Terdaftar
                         </span>
                     </div>
 
@@ -640,91 +640,19 @@
             status: "Normal"
         };
 
-        // ── 2. SEED DATA TITIK IOT (6-8 NODE DI INDONESIA) ──
-        const IOT_NODES = [
+        // ── 2. SEED DATA TITIK IOT (1 Node Aktif Terdaftar di Server) ──
+        let IOT_NODES = [
             {
                 id: "ESP32_FIRE_NODE_01",
-                name: "Node 01 — Hutan Gambut Sektor A, Palangka Raya",
-                region: "Kalimantan Tengah",
-                lat: -2.2165,
-                lng: 113.9168,
+                name: "Node 01 — Lab Riset IoT, UAD Kampus 4",
+                region: "Yogyakarta",
+                lat: -7.833776,
+                lng: 110.383460,
                 temp: 25.0,
                 soil: 68.0,
                 smoke: 35,
                 status: "Normal",
-                updated: "1 menit yang lalu"
-            },
-            {
-                id: "ESP32_FIRE_NODE_02",
-                name: "Node 02 — Lahan Gambut Kubu Raya, Pontianak",
-                region: "Kalimantan Barat",
-                lat: -0.1584,
-                lng: 109.4019,
-                temp: 32.5,
-                soil: 29.1,
-                smoke: 131,
-                status: "Warning",
-                updated: "3 menit yang lalu"
-            },
-            {
-                id: "ESP32_FIRE_NODE_03",
-                name: "Node 03 — Konservasi Giam Siak Kecil, Bengkalis",
-                region: "Riau",
-                lat: 1.1834,
-                lng: 101.9685,
-                temp: 42.8,
-                soil: 12.4,
-                smoke: 420,
-                status: "Danger",
-                updated: "Baru saja"
-            },
-            {
-                id: "ESP32_FIRE_NODE_04",
-                name: "Node 04 — Hutan Lindung Gambut Londerang",
-                region: "Jambi",
-                lat: -1.3328,
-                lng: 103.8569,
-                temp: 28.4,
-                soil: 64.0,
-                smoke: 48,
-                status: "Normal",
-                updated: "5 menit yang lalu"
-            },
-            {
-                id: "ESP32_FIRE_NODE_05",
-                name: "Node 05 — Suaka Margasatwa Padang Sugihan, OKI",
-                region: "Sumatera Selatan",
-                lat: -2.8512,
-                lng: 105.1245,
-                temp: 34.0,
-                soil: 31.0,
-                smoke: 155,
-                status: "Warning",
-                updated: "2 menit yang lalu"
-            },
-            {
-                id: "ESP32_FIRE_NODE_06",
-                name: "Node 06 — Lab Riset IoT, UAD Kampus 4",
-                region: "Yogyakarta",
-                lat: -7.833776,
-                lng: 110.383460,
-                temp: 26.2,
-                soil: 70.0,
-                smoke: 28,
-                status: "Normal",
-                updated: "Sekarang"
-            },
-            {
-                id: "ESP32_FIRE_NODE_07",
-                name: "Node 07 — Lahan Gambut Sebangau Sektor Selatan",
-                region: "Kalimantan Tengah",
-                lat: -2.6500,
-                lng: 113.8000,
-                temp: 43.1,
-                soil: 10.5,
-                smoke: 450,
-                status: "Danger",
-                updated: "Baru saja"
+                updated: "Menunggu koneksi..."
             }
         ];
 
@@ -964,23 +892,23 @@
                 attribution: '&copy; Google Maps'
             };
 
-            // 1. Mini-Map di Dashboard (Fokus UAD Kampus 4 Yogyakarta sesuai referensi mentahan1.png)
-            const uadNode = IOT_NODES.find(n => n.id === "ESP32_FIRE_NODE_06") || IOT_NODES[0];
+            // 1. Mini-Map di Dashboard (Fokus lokasi node aktif)
+            const primaryNode = IOT_NODES[0];
             miniMap = L.map('mini-map', {
-                center: [uadNode.lat, uadNode.lng],
+                center: [primaryNode.lat, primaryNode.lng],
                 zoom: 16,
                 zoomControl: false,
                 attributionControl: false
             });
             L.tileLayer(googleRoadmapUrl, googleOptions).addTo(miniMap);
-            miniMapMarker = L.marker([uadNode.lat, uadNode.lng], {
-                icon: createCustomPin(getMarkerColor(uadNode.status), uadNode.status === 'Danger')
+            miniMapMarker = L.marker([primaryNode.lat, primaryNode.lng], {
+                icon: createCustomPin(getMarkerColor(primaryNode.status), primaryNode.status === 'Danger')
             }).addTo(miniMap);
 
-            // 2. Full-Map di Tab Map Monitoring
+            // 2. Full-Map di Tab Map Monitoring (Fokus langsung ke lokasi node terdaftar)
             fullMap = L.map('full-map', {
-                center: [-1.5, 114.5],
-                zoom: 5,
+                center: [primaryNode.lat, primaryNode.lng],
+                zoom: 15,
                 zoomControl: true,
                 attributionControl: false
             });
@@ -1130,8 +1058,9 @@
         }
 
         function resetMapBounds() {
-            if (!fullMap) return;
-            fullMap.flyTo([-1.2, 115.0], 5, { duration: 1.2 });
+            if (!fullMap || IOT_NODES.length === 0) return;
+            const primary = IOT_NODES[0];
+            fullMap.flyTo([primary.lat, primary.lng], 15, { duration: 1.2 });
         }
 
         // ── 7. VIEW SWITCHER (DASHBOARD <-> MAP) ──
@@ -1183,6 +1112,37 @@
                 status: status
             };
 
+            // Sinkronisasi data node dari server jika ada daftar nodes
+            if (payload.nodes && Array.isArray(payload.nodes) && payload.nodes.length > 0) {
+                payload.nodes.forEach(serverNode => {
+                    let existing = IOT_NODES.find(n => n.id === serverNode.device_id);
+                    if (existing) {
+                        existing.name = serverNode.name || existing.name;
+                        existing.region = serverNode.region || existing.region;
+                        if (serverNode.lat !== undefined) existing.lat = serverNode.lat;
+                        if (serverNode.lng !== undefined) existing.lng = serverNode.lng;
+                        existing.temp = serverNode.temperature ?? existing.temp;
+                        existing.soil = serverNode.soil_moisture ?? existing.soil;
+                        existing.smoke = serverNode.smoke_ppm ?? existing.smoke;
+                        existing.status = serverNode.status || existing.status;
+                        existing.updated = serverNode.updated || "Baru saja";
+                    } else {
+                        IOT_NODES.push({
+                            id: serverNode.device_id,
+                            name: serverNode.name || `Node ${serverNode.device_id}`,
+                            region: serverNode.region || "Indonesia",
+                            lat: serverNode.lat ?? -7.833776,
+                            lng: serverNode.lng ?? 110.383460,
+                            temp: serverNode.temperature ?? 25.0,
+                            soil: serverNode.soil_moisture ?? 50.0,
+                            smoke: serverNode.smoke_ppm ?? 30,
+                            status: serverNode.status || "Normal",
+                            updated: "Baru saja"
+                        });
+                    }
+                });
+            }
+
             // Update Primary Node in IOT_NODES table
             const primary = IOT_NODES.find(n => n.id === deviceId);
             if (primary) {
@@ -1191,6 +1151,25 @@
                 primary.smoke = currentPayload.smoke_ppm;
                 primary.status = status;
                 primary.updated = "Baru saja";
+                if (payload.lat !== undefined && payload.lng !== undefined) {
+                    primary.lat = payload.lat;
+                    primary.lng = payload.lng;
+                }
+                if (payload.name) primary.name = payload.name;
+                if (payload.region) primary.region = payload.region;
+            } else {
+                IOT_NODES.push({
+                    id: deviceId,
+                    name: payload.name || `Node ${deviceId}`,
+                    region: payload.region || "Indonesia",
+                    lat: payload.lat ?? -7.833776,
+                    lng: payload.lng ?? 110.383460,
+                    temp: currentPayload.temperature,
+                    soil: currentPayload.soil_moisture,
+                    smoke: currentPayload.smoke_ppm,
+                    status: status,
+                    updated: "Baru saja"
+                });
             }
 
             // 1. Header Info & Sync Status
@@ -1324,9 +1303,15 @@
                 miniChart.update('none');
             }
 
-            // 6. Update Map Markers
-            if (miniMapMarker) {
-                miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), status === 'Danger'));
+            // 6. Update Map Markers & Center
+            if (primary) {
+                if (miniMapMarker) {
+                    miniMapMarker.setLatLng([primary.lat, primary.lng]);
+                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), status === 'Danger'));
+                }
+                if (miniMap) {
+                    miniMap.panTo([primary.lat, primary.lng]);
+                }
             }
             populateFullMapMarkers();
             renderNodesList();

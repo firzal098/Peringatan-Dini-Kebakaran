@@ -16,6 +16,12 @@
 
 import os
 import sys
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import time
 import json
 import threading
@@ -46,13 +52,40 @@ WIB = ZoneInfo("Asia/Jakarta")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DASHBOARD_FILE = os.path.join(BASE_DIR, "frontend", "dashboard.html")
 
+# ── NODE REGISTRY (GEOLOKASI DIKELOLA SERVER) ─────────────────────────────────
+# Server meregistrasikan ID perangkat IoT ke lokasi fisik koordinatnya.
+# Perangkat IoT (Wokwi) tidak menyimpan GPS/lokasi, server yang melampirkan metadata ini.
+NODE_REGISTRY = {
+    "ESP32_FIRE_NODE_01": {
+        "device_id": "ESP32_FIRE_NODE_01",
+        "name": "Node 01 — Lab Riset IoT, UAD Kampus 4",
+        "region": "Yogyakarta",
+        "lat": -7.833776,
+        "lng": 110.383460
+    }
+}
+
 # ── DATA STORAGE ──────────────────────────────────────────────────────────────
 data_lock = threading.Lock()
 MAX_HISTORY = 100
 telemetry_history = deque(maxlen=MAX_HISTORY)
 
+active_nodes = {
+    "ESP32_FIRE_NODE_01": {
+        **NODE_REGISTRY["ESP32_FIRE_NODE_01"],
+        "temperature": 27.0,
+        "humidity": 65.0,
+        "soil_moisture": 52.0,
+        "smoke_ppm": 90,
+        "status": "Normal",
+        "risk_index": 18,
+        "updated": "Menunggu data...",
+        "last_seen": None
+    }
+}
+
 latest_state = {
-    "device_id": "ESP32_FIRE_NODE_01",
+    **NODE_REGISTRY["ESP32_FIRE_NODE_01"],
     "temperature": 27.0,
     "humidity": 65.0,
     "soil_moisture": 52.0,
@@ -112,7 +145,18 @@ def on_message(client, userdata, message):
         dev_id= str(data.get("device_id", "ESP32_FIRE_NODE_01"))
 
         with data_lock:
-            override = latest_state["control_override"]
+            # Ambil metadata lokasi dari NODE_REGISTRY server
+            if dev_id not in NODE_REGISTRY:
+                NODE_REGISTRY[dev_id] = {
+                    "device_id": dev_id,
+                    "name": f"Node ({dev_id})",
+                    "region": "Indonesia",
+                    "lat": -7.833776,
+                    "lng": 110.383460
+                }
+            node_meta = NODE_REGISTRY[dev_id]
+
+            override = latest_state.get("control_override")
             if override and override != "AUTO":
                 status = override
             else:
@@ -123,6 +167,10 @@ def on_message(client, userdata, message):
             record = {
                 "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
                 "device_id": dev_id,
+                "name": node_meta["name"],
+                "region": node_meta["region"],
+                "lat": node_meta["lat"],
+                "lng": node_meta["lng"],
                 "temperature": round(temp, 1),
                 "humidity": round(hum, 1),
                 "soil_moisture": round(soil, 1),
@@ -131,16 +179,22 @@ def on_message(client, userdata, message):
                 "risk_index": risk_pct
             }
 
+            active_nodes[dev_id] = {
+                **record,
+                "updated": "Baru saja",
+                "last_seen": now.strftime("%H:%M:%S WIB")
+            }
+
             latest_state.update(record)
             latest_state["messages_received"] += 1
             latest_state["last_telemetry_time"] = now.strftime("%H:%M:%S WIB")
             telemetry_history.append(record)
 
         # Kirim instruksi balik ke ESP32 Wokwi
-        resp_cmd = json.dumps({"status": status, "risk": status, "source": "Local_Backend"})
+        resp_cmd = json.dumps({"device_id": dev_id, "status": status, "risk": status, "source": "Local_Backend"})
         client.publish(TOPIC_CONTROL, resp_cmd)
 
-        print(f"[{now.strftime('%H:%M:%S')}] Telemetri ESP32 -> Suhu: {temp:.1f}°C | Tanah: {soil:.1f}% | Asap: {smoke:.0f}ppm | Status: [{status}]")
+        print(f"[{now.strftime('%H:%M:%S')}] Telemetri [{dev_id} @ {node_meta['name']}] -> Suhu: {temp:.1f}°C | Tanah: {soil:.1f}% | Asap: {smoke:.0f}ppm | Status: [{status}]")
 
     except Exception as exc:
         print(f"⚠️ [MQTT] Gagal membaca data: {exc}")
@@ -175,9 +229,20 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
 
+        elif path == '/api/nodes':
+            with data_lock:
+                payload = json.dumps(list(active_nodes.values())).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
         elif path == '/api/telemetry/latest':
             with data_lock:
-                payload = json.dumps(latest_state).encode('utf-8')
+                state_copy = dict(latest_state)
+                state_copy["nodes"] = list(active_nodes.values())
+                payload = json.dumps(state_copy).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Content-Length', str(len(payload)))
@@ -197,7 +262,8 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
             payload = json.dumps({
                 "status": "ok",
                 "mqtt": latest_state["mqtt_connected"],
-                "received": latest_state["messages_received"]
+                "received": latest_state["messages_received"],
+                "registered_nodes": len(NODE_REGISTRY)
             }).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -220,18 +286,61 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
 
         now = datetime.now(WIB)
 
-        if path == '/api/telemetry/inject':
+        if path == '/api/nodes/location':
+            dev_id = str(data.get("device_id", "ESP32_FIRE_NODE_01"))
+            with data_lock:
+                if dev_id not in NODE_REGISTRY:
+                    NODE_REGISTRY[dev_id] = {
+                        "device_id": dev_id,
+                        "name": f"Node ({dev_id})",
+                        "region": "Indonesia",
+                        "lat": -7.833776,
+                        "lng": 110.383460
+                    }
+                if "lat" in data: NODE_REGISTRY[dev_id]["lat"] = float(data["lat"])
+                if "lng" in data: NODE_REGISTRY[dev_id]["lng"] = float(data["lng"])
+                if "name" in data: NODE_REGISTRY[dev_id]["name"] = str(data["name"])
+                if "region" in data: NODE_REGISTRY[dev_id]["region"] = str(data["region"])
+
+                if dev_id in active_nodes:
+                    active_nodes[dev_id].update(NODE_REGISTRY[dev_id])
+                if latest_state.get("device_id") == dev_id:
+                    latest_state.update(NODE_REGISTRY[dev_id])
+
+            resp = json.dumps({"success": True, "node": NODE_REGISTRY[dev_id]}).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+
+        elif path == '/api/telemetry/inject':
             temp  = float(data.get("temperature", 25.0))
             hum   = float(data.get("humidity", 65.0))
             soil  = float(data.get("soil_moisture", 50.0))
             smoke = float(data.get("smoke_ppm", 90.0))
+            dev_id= str(data.get("device_id", "ESP32_FIRE_NODE_01"))
             status = data.get("status") or evaluate_risk(temp, hum, soil, smoke)
             risk_pct = calculate_risk_percentage(temp, hum, soil, smoke)
 
             with data_lock:
+                if dev_id not in NODE_REGISTRY:
+                    NODE_REGISTRY[dev_id] = {
+                        "device_id": dev_id,
+                        "name": f"Node ({dev_id})",
+                        "region": "Indonesia",
+                        "lat": -7.833776,
+                        "lng": 110.383460
+                    }
+                node_meta = NODE_REGISTRY[dev_id]
+
                 record = {
                     "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-                    "device_id": data.get("device_id", "ESP32_FIRE_NODE_01"),
+                    "device_id": dev_id,
+                    "name": node_meta["name"],
+                    "region": node_meta["region"],
+                    "lat": node_meta["lat"],
+                    "lng": node_meta["lng"],
                     "temperature": round(temp, 1),
                     "humidity": round(hum, 1),
                     "soil_moisture": round(soil, 1),
@@ -239,12 +348,19 @@ class DashboardHTTPHandler(BaseHTTPRequestHandler):
                     "status": status,
                     "risk_index": risk_pct
                 }
+
+                active_nodes[dev_id] = {
+                    **record,
+                    "updated": "Baru saja",
+                    "last_seen": now.strftime("%H:%M:%S WIB")
+                }
+
                 latest_state.update(record)
                 latest_state["messages_received"] += 1
                 latest_state["last_telemetry_time"] = now.strftime("%H:%M:%S WIB")
                 telemetry_history.append(record)
 
-            mqtt_client.publish(TOPIC_CONTROL, json.dumps({"status": status, "risk": status, "source": "Manual_Inject"}))
+            mqtt_client.publish(TOPIC_CONTROL, json.dumps({"device_id": dev_id, "status": status, "risk": status, "source": "Manual_Inject"}))
 
             resp = json.dumps({"success": True, "data": record}).encode('utf-8')
             self.send_response(200)

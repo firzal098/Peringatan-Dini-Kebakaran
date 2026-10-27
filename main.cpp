@@ -195,6 +195,12 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
   String statusStr;
   if (buf[0] == '{') {
     if (!deserializeJson(doc, buf)) {
+      if (doc.containsKey("device_id")) {
+        const char* targetDev = doc["device_id"];
+        if (targetDev && strlen(targetDev) > 0 && strcmp(targetDev, DEVICE_ID) != 0) {
+          return; // Perintah ditujukan untuk node lain
+        }
+      }
       if (doc.containsKey("status"))    statusStr = doc["status"].as<const char*>();
       else if (doc.containsKey("risk")) statusStr = doc["risk"].as<const char*>();
     }
@@ -207,7 +213,7 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
 
   serverOnline  = true;
   lastServerCmd = millis();
-  Serial.printf("[MQTT] Status: %s (dari Server)\n", RISK_NAMES[riskLevel]);
+  Serial.printf("[MQTT] Status: %s (dari Server untuk %s)\n", RISK_NAMES[riskLevel], DEVICE_ID);
 }
 
 void readAllSensors(float& temp, float& hum, float& soil, float& smoke) {
@@ -274,7 +280,7 @@ void publishTelemetry(float temp, float hum, float soil, float smoke) {
   char buf[256];
   serializeJson(doc, buf);
   if (mqtt.publish(TOPIC_TELEMETRY, buf))
-    Serial.printf("[MQTT] Telemetri dikirim ke '%s'\n", TOPIC_TELEMETRY);
+    Serial.printf("[MQTT] Telemetri node '%s' dikirim ke '%s'\n", DEVICE_ID, TOPIC_TELEMETRY);
   else
     Serial.println(F("[MQTT] Gagal publish."));
 }
@@ -282,6 +288,7 @@ void publishTelemetry(float temp, float hum, float soil, float smoke) {
 void printSensorTable(float temp, float hum, float soil, float smoke) {
   const char* mode = serverOnline ? "Server Python" : "Lokal (Fallback)";
   Serial.println(F("┌─────────────────────────────────────────────────┐"));
+  Serial.printf( "│ Node ID          : %-28s │\n", DEVICE_ID);
   Serial.printf( "│ Suhu Udara       : %5.1f °C                     │\n", temp);
   Serial.printf( "│ Kelembapan Udara : %5.1f %%                      │\n", hum);
   Serial.printf( "│ Kelembapan Tanah : %5.1f %%                      │\n", soil);

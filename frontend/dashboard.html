@@ -738,10 +738,10 @@
 
         // ── 4. LOGIKA MULTIVARIAT & BOBOT RISIKO ──
         function evaluateRiskStatus(temp, hum, soil, smoke) {
-            if (temp >= 40.0 || smoke >= 220 || (temp >= 34.0 && soil <= 22.0 && smoke >= 140)) {
+            if ( (temp >= 40.0 && soil <= 20.0 && smoke >= 400.0) || smoke >= 600.0 || (temp >= 45.0 && smoke >= 250.0) ) {
                 return "Danger";
             }
-            if (temp >= 30.0 || soil < 35.0 || smoke >= 95 || hum < 45.0) {
+            if (temp >= 32.0 || soil <= 35.0 || smoke >= 200.0 || hum < 45.0) {
                 return "Warning";
             }
             return "Normal";

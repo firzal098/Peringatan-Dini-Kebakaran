@@ -41,6 +41,7 @@ const unsigned long BLINK_PERIOD_MS   = 500;
 // ── THRESHOLD ─────────────────────────────────────────────────────────────────
 const float TEMP_WARN   = 32.0;
 const float TEMP_DANGER = 40.0;
+const float HUM_WARN    = 45.0;
 const float SOIL_WARN   = 35.0;
 const float SOIL_DANGER = 20.0;
 const float SMOKE_WARN  = 200.0;
@@ -235,7 +236,7 @@ RiskLevel localRiskEval(float temp, float hum, float soil, float smoke) {
   bool dangerHeat     = (temp >= 45.0f && smoke >= 250.0f);
   if (dangerCombined || dangerSmoke || dangerHeat) return LEVEL_DANGER;
 
-  if (temp >= TEMP_WARN || soil <= SOIL_WARN || smoke >= SMOKE_WARN) return LEVEL_WARNING;
+  if (temp >= TEMP_WARN || soil <= SOIL_WARN || smoke >= SMOKE_WARN || hum < HUM_WARN) return LEVEL_WARNING;
   return LEVEL_NORMAL;
 }
 

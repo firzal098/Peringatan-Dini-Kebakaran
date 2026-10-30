@@ -86,16 +86,16 @@
             border-color: rgba(255, 255, 255, 0.14);
         }
 
-        /* Fintrixity Orange Gradient Card (style-color.jpe) */
-        .f-card-orange {
-            background: linear-gradient(135deg, #FF5500 0%, #FF3E00 48%, #FF7700 100%);
+        /* Evaluasi Karhutla Gradient Card (Default Normal: Hijau Gradient) */
+        .f-card-green, .f-card-orange {
+            background: linear-gradient(135deg, #10B981 0%, #059669 48%, #047857 100%);
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 18px;
-            box-shadow: 0 12px 32px -8px rgba(255, 85, 0, 0.45);
+            box-shadow: 0 12px 32px -8px rgba(16, 185, 129, 0.45);
             transition: all 0.2s ease;
         }
-        .f-card-orange:hover {
-            box-shadow: 0 16px 36px -6px rgba(255, 85, 0, 0.55);
+        .f-card-green:hover, .f-card-orange:hover {
+            box-shadow: 0 16px 36px -6px rgba(16, 185, 129, 0.55);
             transform: translateY(-1px);
         }
 
@@ -272,8 +272,8 @@
             <!-- ROW 1: 4 KOTAK KPI METRIC CARDS (STYLE-COLOR.JPE FINTRIXITY) -->
             <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-                <!-- Card 1 (ORANGE GRADIENT HERO CARD - FINTRIXITY STYLE) -->
-                <div id="hero-gradient-card" class="f-card-orange p-5 flex flex-col justify-between min-h-[190px]">
+                <!-- Card 1 (HERO CARD - EVALUASI KARHUTLA) -->
+                <div id="hero-gradient-card" class="f-card-green p-5 flex flex-col justify-between min-h-[190px]">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2.5">
                             <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold">
@@ -887,8 +887,9 @@
         let fullMapMarkers = [];
 
         function getMarkerColor(status) {
-            if (status === 'Danger') return '#EF4444';
-            if (status === 'Warning') return '#F59E0B';
+            const s = (status || '').toLowerCase();
+            if (s === 'danger' || s === 'bahaya' || s === 'kritis') return '#EF4444';
+            if (s === 'warning' || s === 'siaga' || s === 'waspada') return '#F59E0B';
             return '#10B981';
         }
 
@@ -903,8 +904,9 @@
         }
 
         function createPopupHTML(node) {
-            const isDanger = node.status === 'Danger';
-            const isWarning = node.status === 'Warning';
+            const s = (node.status || '').toLowerCase();
+            const isDanger = s === 'danger' || s === 'bahaya' || s === 'kritis';
+            const isWarning = s === 'warning' || s === 'siaga' || s === 'waspada';
             const statusColor = isDanger ? '#EF4444' : (isWarning ? '#F59E0B' : '#10B981');
             const statusLabel = isDanger ? '🔴 STATUS: BAHAYA' : (isWarning ? '🟡 STATUS: WASPADA' : '🟢 STATUS: AMAN');
             const soilLabel = node.soil <= 22 ? `Sangat Kering (${node.soil}%)` : (node.soil < 35 ? `Mengering (${node.soil}%)` : `Lembap (${node.soil}%)`);
@@ -936,13 +938,14 @@
         let showMapLabels = false; // OFF by default: nama jalan & tempat disembunyikan
         let currentLayerKey = 'satellite';
         let miniMapTileLayer = null;
+        let miniMapLabelLayer = null;
         let fullMapTileLayer = null;
+        let fullMapLabelLayer = null;
 
         function getMapTileConfig(layerKey, withLabels) {
             if (layerKey === 'satellite') {
                 return {
-                    // withLabels false -> lyrs=s (murni foto udara satelit tanpa nama jalan)
-                    // withLabels true  -> lyrs=y (hybrid satelit dengan nama jalan)
+                    // Google Satelit: lyrs=s (murni citra udara), lyrs=y (hybrid satelit + nama jalan/label)
                     url: withLabels
                         ? 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
                         : 'https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
@@ -953,25 +956,25 @@
                     }
                 };
             } else if (layerKey === 'dark') {
+                // ESRI World Dark Gray Canvas: 100% Bebas API Key, Elegan & Tepat untuk tema gelap dashboard
                 return {
-                    url: withLabels
-                        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                        : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+                    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                    labelUrl: withLabels ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}' : null,
                     options: {
-                        maxZoom: 20,
-                        subdomains: ['a', 'b', 'c', 'd'],
-                        attribution: '&copy; OpenStreetMap &copy; CARTO'
+                        maxZoom: 19,
+                        attribution: '&copy; Esri &copy; OpenStreetMap'
                     }
                 };
-            } else { // streets
+            } else { // streets / jalan
+                // Google Maps Streets resmi (lyrs=m) untuk nama jalan & panduan lengkap, atau ESRI World Street Map
                 return {
                     url: withLabels
                         ? 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'
-                        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+                        : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
                     options: {
                         maxZoom: 20,
-                        subdomains: withLabels ? ['mt0', 'mt1', 'mt2', 'mt3'] : ['a', 'b', 'c', 'd'],
-                        attribution: withLabels ? '&copy; Google Maps' : '&copy; OpenStreetMap &copy; CARTO'
+                        subdomains: withLabels ? ['mt0', 'mt1', 'mt2', 'mt3'] : [],
+                        attribution: withLabels ? '&copy; Google Maps Streets' : '&copy; Esri &copy; OpenStreetMap'
                     }
                 };
             }
@@ -1020,13 +1023,25 @@
             // 1. Update miniMap tile
             if (miniMap) {
                 if (miniMapTileLayer) miniMap.removeLayer(miniMapTileLayer);
+                if (miniMapLabelLayer) miniMap.removeLayer(miniMapLabelLayer);
                 miniMapTileLayer = L.tileLayer(cfg.url, cfg.options).addTo(miniMap);
+                if (cfg.labelUrl) {
+                    miniMapLabelLayer = L.tileLayer(cfg.labelUrl, cfg.options).addTo(miniMap);
+                } else {
+                    miniMapLabelLayer = null;
+                }
             }
 
             // 2. Update fullMap tile
             if (fullMap) {
                 if (fullMapTileLayer) fullMap.removeLayer(fullMapTileLayer);
+                if (fullMapLabelLayer) fullMap.removeLayer(fullMapLabelLayer);
                 fullMapTileLayer = L.tileLayer(cfg.url, cfg.options).addTo(fullMap);
+                if (cfg.labelUrl) {
+                    fullMapLabelLayer = L.tileLayer(cfg.labelUrl, cfg.options).addTo(fullMap);
+                } else {
+                    fullMapLabelLayer = null;
+                }
             }
 
             // 3. Update button active styles (Mini-Map & Full-Map)
@@ -1084,8 +1099,9 @@
             updateLabelToggleUI();
             setMapLayer('satellite');
 
+            const pStatus = (primaryNode.status || '').toLowerCase();
             miniMapMarker = L.marker([primaryNode.lat, primaryNode.lng], {
-                icon: createCustomPin(getMarkerColor(primaryNode.status), primaryNode.status === 'Danger')
+                icon: createCustomPin(getMarkerColor(primaryNode.status), pStatus === 'danger' || pStatus === 'bahaya' || pStatus === 'kritis')
             }).addTo(miniMap);
 
             updateGmapsLink(primaryNode.lat, primaryNode.lng);
@@ -1100,7 +1116,8 @@
 
             IOT_NODES.forEach(node => {
                 const color = getMarkerColor(node.status);
-                const isDanger = node.status === 'Danger';
+                const nStatus = (node.status || '').toLowerCase();
+                const isDanger = nStatus === 'danger' || nStatus === 'bahaya' || nStatus === 'kritis';
                 const marker = L.marker([node.lat, node.lng], {
                     icon: createCustomPin(color, isDanger)
                 }).addTo(fullMap);
@@ -1125,8 +1142,8 @@
 
             container.innerHTML = filtered.map(node => {
                 const isSelected = (node.id === selectedNodeId);
-                const isDanger = node.status === 'Danger';
-                const isWarning = node.status === 'Warning';
+                const isDanger = (node.status || '').toLowerCase() === 'danger' || (node.status || '').toLowerCase() === 'bahaya' || (node.status || '').toLowerCase() === 'kritis';
+                const isWarning = (node.status || '').toLowerCase() === 'warning' || (node.status || '').toLowerCase() === 'siaga' || (node.status || '').toLowerCase() === 'waspada';
 
                 if (isSelected) {
                     return `
@@ -1134,7 +1151,7 @@
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-black text-white truncate max-w-[200px] drop-shadow-sm">${node.name}</span>
                                 <span class="text-[10px] font-black text-[#0A0A0C] bg-white/95 px-2 py-0.5 rounded-full shadow-sm">
-                                    ${node.status === 'Danger' ? '🔴 Bahaya' : (node.status === 'Warning' ? '🟡 Waspada' : '🟢 Aman')}
+                                    ${isDanger ? '🔴 Bahaya' : (isWarning ? '🟡 Waspada' : '🟢 Aman')}
                                 </span>
                             </div>
                             <div class="flex items-center gap-3 text-[11px] text-white/95 font-mono font-bold">
@@ -1241,8 +1258,9 @@
             if (miniMap) {
                 miniMap.setView([node.lat, node.lng], 16);
                 if (miniMapMarker) {
+                    const nStatus = (node.status || '').toLowerCase();
                     miniMapMarker.setLatLng([node.lat, node.lng]);
-                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(node.status), node.status === 'Danger'));
+                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(node.status), nStatus === 'danger' || nStatus === 'bahaya' || nStatus === 'kritis'));
                 }
             }
 
@@ -1397,14 +1415,16 @@
             ledRed.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
             buzzerDot.className = "w-3.5 h-3.5 rounded-full bg-gray-700 transition-all";
 
-            if (status.toLowerCase() === 'danger') {
+            const s = (status || '').toLowerCase();
+
+            if (s === 'danger' || s === 'bahaya' || s === 'kritis') {
                 ledRed.className = "w-3.5 h-3.5 rounded-full bg-status-danger shadow-[0_0_12px_#EF4444] danger-pulse transition-all";
                 buzzerDot.className = "w-3.5 h-3.5 rounded-full bg-status-danger shadow-[0_0_12px_#EF4444] transition-all";
                 actSummary.className = "font-semibold text-status-danger flex items-center gap-1.5 animate-pulse";
                 actSummary.innerHTML = `<i class="ph-fill ph-warning-octagon"></i> ALARM AKTIF (GPIO 21 &amp; 22)`;
 
                 playBuzzerTone(260, 2800);
-            } else if (status.toLowerCase() === 'warning') {
+            } else if (s === 'warning' || s === 'siaga' || s === 'waspada') {
                 ledYellow.className = "w-3.5 h-3.5 rounded-full bg-status-warning shadow-[0_0_12px_#F59E0B] transition-all";
                 actSummary.className = "font-semibold text-status-warning flex items-center gap-1.5";
                 actSummary.innerHTML = `<i class="ph-fill ph-warning"></i> LED Kuning ON (GPIO 19)`;
@@ -1426,7 +1446,7 @@
             document.getElementById('breakdown-soil').textContent = `${soilScore}%`;
             document.getElementById('breakdown-smoke').textContent = `${smokeScore}%`;
 
-            // Update Fintrixity Orange Hero Card (style-color.jpe)
+            // Update Hero Card (Evaluasi Karhutla)
             const heroCard = document.getElementById('hero-gradient-card');
             const heroTitle = document.getElementById('hero-status-title');
             const heroSubtitle = document.getElementById('hero-status-subtitle');
@@ -1436,13 +1456,13 @@
             if (heroRiskVal) heroRiskVal.textContent = `${riskPct}%`;
 
             if (heroCard && heroTitle) {
-                if (status.toLowerCase() === 'danger') {
+                if (s === 'danger' || s === 'bahaya' || s === 'kritis') {
                     heroTitle.textContent = "STATUS: DANGER";
                     if (heroSubtitle) heroSubtitle.textContent = "Kondisi Kritis • Api / Asap Pekat!";
                     if (heroIcon) heroIcon.className = "ph-bold ph-warning-octagon text-lg animate-bounce";
                     heroCard.style.background = "linear-gradient(135deg, #EF4444 0%, #DC2626 50%, #B91C1C 100%)";
                     heroCard.style.boxShadow = "0 12px 32px -8px rgba(239, 68, 68, 0.55)";
-                } else if (status.toLowerCase() === 'warning') {
+                } else if (s === 'warning' || s === 'siaga' || s === 'waspada') {
                     heroTitle.textContent = "STATUS: WARNING";
                     if (heroSubtitle) heroSubtitle.textContent = "Waspada Dini • Gambut Mengering";
                     if (heroIcon) heroIcon.className = "ph-bold ph-warning text-lg";
@@ -1452,14 +1472,14 @@
                     heroTitle.textContent = "STATUS: NORMAL";
                     if (heroSubtitle) heroSubtitle.textContent = "Kondisi Gambut Aman Terkendali";
                     if (heroIcon) heroIcon.className = "ph-bold ph-shield-check text-lg";
-                    heroCard.style.background = "linear-gradient(135deg, #FF5500 0%, #FF3E00 48%, #FF7700 100%)";
-                    heroCard.style.boxShadow = "0 12px 32px -8px rgba(255, 85, 0, 0.45)";
+                    heroCard.style.background = "linear-gradient(135deg, #10B981 0%, #059669 48%, #047857 100%)";
+                    heroCard.style.boxShadow = "0 12px 32px -8px rgba(16, 185, 129, 0.45)";
                 }
             }
 
-            if (status.toLowerCase() === 'danger') {
+            if (s === 'danger' || s === 'bahaya' || s === 'kritis') {
                 document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-danger/15 text-status-danger border border-status-danger/30";
-            } else if (status.toLowerCase() === 'warning') {
+            } else if (s === 'warning' || s === 'siaga' || s === 'waspada') {
                 document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-warning/15 text-status-warning border border-status-warning/30";
             } else {
                 document.getElementById('risk-badge').className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-status-normal/15 text-status-normal border border-status-normal/30";
@@ -1501,7 +1521,7 @@
                 updateGmapsLink(primary.lat, primary.lng);
                 if (miniMapMarker) {
                     miniMapMarker.setLatLng([primary.lat, primary.lng]);
-                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), status === 'Danger'));
+                    miniMapMarker.setIcon(createCustomPin(getMarkerColor(status), s === 'danger' || s === 'bahaya' || s === 'kritis'));
                 }
                 if (miniMap) {
                     miniMap.panTo([primary.lat, primary.lng]);
